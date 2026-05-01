@@ -8,7 +8,9 @@ import android.os.Bundle;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.AdapterView;
+import android.widget.CheckBox;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -58,6 +60,8 @@ import ca.dnamobile.javalauncher.skin.CustomSkinStore;
 import ca.dnamobile.javalauncher.skin.MicrosoftSkinUploader;
 import ca.dnamobile.javalauncher.skin.PlayerHeadLoader;
 import ca.dnamobile.javalauncher.skin.SkinModelType;
+import ca.dnamobile.javalauncher.update.LauncherUpdateDialogs;
+import ca.dnamobile.javalauncher.update.LauncherUpdatePreferences;
 import ca.dnamobile.javalauncher.utils.FullscreenUtils;
 import ca.dnamobile.javalauncher.utils.path.PathManager;
 
@@ -868,6 +872,63 @@ public final class LauncherSettingsActivity extends AppCompatActivity {
         });
 
         binding.buttonShareLatestLog.setOnClickListener(view -> LauncherLogManager.shareLatestLog(this));
+        setupUpdateCheckerSettings();
+    }
+
+    private void setupUpdateCheckerSettings() {
+        if (binding == null || binding.buttonShareLatestLog == null) return;
+        if (!(binding.buttonShareLatestLog.getParent() instanceof ViewGroup)) return;
+
+        ViewGroup parent = (ViewGroup) binding.buttonShareLatestLog.getParent();
+        if (parent.findViewWithTag("update_checker_settings") != null) return;
+
+        LinearLayout container = new LinearLayout(this);
+        container.setTag("update_checker_settings");
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.setPadding(0, dp(12), 0, 0);
+        parent.addView(container, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+
+        TextView title = new TextView(this);
+        title.setText("Launcher updates");
+        title.setTextSize(16f);
+        title.setGravity(Gravity.START);
+        container.addView(title, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        ));
+
+        TextView summary = new TextView(this);
+        summary.setText("Checks GitHub releases for newer DroidBridge builds.");
+        summary.setTextSize(13f);
+        summary.setPadding(0, dp(2), 0, dp(6));
+        container.addView(summary, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        ));
+
+        CheckBox autoCheck = new CheckBox(this);
+        autoCheck.setText("Check for updates on startup");
+        autoCheck.setChecked(LauncherUpdatePreferences.isAutoCheckEnabled(this));
+        autoCheck.setOnCheckedChangeListener((buttonView, isChecked) ->
+                LauncherUpdatePreferences.setAutoCheckEnabled(this, isChecked));
+        container.addView(autoCheck, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        ));
+
+        MaterialButton checkNow = new MaterialButton(this);
+        checkNow.setText("Check for updates");
+        checkNow.setAllCaps(false);
+        checkNow.setOnClickListener(view -> LauncherUpdateDialogs.checkManually(this));
+        LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        buttonParams.topMargin = dp(6);
+        container.addView(checkNow, buttonParams);
     }
 
     private void setupPrivacyPolicySettings() {
