@@ -1,0 +1,636 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AndroidLayouts">
+    <shared>
+      <config />
+    </shared>
+    <layouts>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/layout-land/activity_main.xml">
+        <config>
+          <state>Landscape</state>
+          <theme>@style/Theme.JavaLauncher</theme>
+        </config>
+      </layout>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/layout/activity_content_browser.xml">
+        <config>
+          <theme>@style/Theme.JavaLauncher</theme>
+        </config>
+      </layout>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/layout/activity_game.xml">
+        <config>
+          <theme>@style/Theme.JavaLauncher</theme>
+        </config>
+      </layout>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/layout/activity_instance_details.xml">
+        <config>
+          <state>Landscape</state>
+          <theme>@style/Theme.JavaLauncher</theme>
+        </config>
+      </layout>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/layout/activity_launcher_settings.xml">
+        <config>
+          <state>Landscape</state>
+          <theme>@style/Theme.JavaLauncher</theme>
+        </config>
+      </layout>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/layout/activity_main.xml">
+        <config>
+          <theme>@style/Theme.JavaLauncher</theme>
+        </config>
+      </layout>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/layout/item_launcher_instance.xml">
+        <config>
+          <theme>@style/Theme.JavaLauncher</theme>
+        </config>
+      </layout>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/layout/item_version.xml">
+        <config>
+          <theme>@style/Theme.JavaLauncher</theme>
+        </config>
+      </layout>
+    </layouts>
+  </component>
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="NONE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="886b1984-8f2f-4381-ba0f-2d372b74757a" name="Changes" comment="- Added personal accepted Microsoft login credentials&#10;- Updated Privacy Policy/licenses/Readme" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ChangesViewManager">
+    <option name="groupingKeys">
+      <option value="directory" />
+      <option value="repository" />
+    </option>
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[]" />
+  <component name="ExternalProjectsData">
+    <projectState path="$PROJECT_DIR$">
+      <ProjectState />
+    </projectState>
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Enum" />
+        <option value="layoutResourceFile" />
+        <option value="resourceFile" />
+        <option value="Class" />
+      </list>
+    </option>
+  </component>
+  <component name="GenerateSignedApkSettings">
+    <option name="KEY_STORE_PATH" value="C:\Users\MisterDNEHMSI\StudioProjects\release\droidbridge" />
+    <option name="KEY_ALIAS" value="dnamobile" />
+    <option name="REMEMBER_PASSWORDS" value="true" />
+    <option name="BUILD_TARGET_KEY" value="apk" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="fabric-forge-support" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 6
+}</component>
+  <component name="ProjectId" id="3CglZrYA3dTfPm031G1mQ0154Vb" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="1" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Android App.app.executor&quot;: &quot;Run&quot;,
+    &quot;ApkExportedModule&quot;: &quot;JavaLauncher.app&quot;,
+    &quot;ExportApk.ApkPathForJavaLauncher.app&quot;: &quot;C:\\Users\\MisterDNEHMSI\\StudioProjects\\JavaLauncherProject\\app&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
+    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;com.google.services.firebase.aqiPopupShown&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/MisterDNEHMSI/StudioProjects/JavaLauncherBackup&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Modules&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.17&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;project.propVCSSupport.DirectoryMappings&quot;
+  },
+  &quot;keyToStringList&quot;: {
+    &quot;ExportApk.BuildVariants&quot;: [
+      &quot;release&quot;
+    ]
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="CreateClassDialog.RecentsKey">
+      <recent name="ca.dnamobile.javalauncher.feature.unpack" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\MisterDNEHMSI\Downloads\JavaLauncherProject\JavaLauncherProject\app\src\main\java\ca\dnamobile\javalauncher\launcher" />
+    </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="app" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false">
+      <module name="JavaLauncher.app" />
+      <option name="ANDROID_RUN_CONFIGURATION_SCHEMA_VERSION" value="1" />
+      <option name="DEPLOY" value="true" />
+      <option name="DEPLOY_APK_FROM_BUNDLE" value="false" />
+      <option name="DEPLOY_AS_INSTANT" value="false" />
+      <option name="ARTIFACT_NAME" value="" />
+      <option name="PM_INSTALL_OPTIONS" value="" />
+      <option name="ALL_USERS" value="false" />
+      <option name="ALWAYS_INSTALL_WITH_PM" value="false" />
+      <option name="ALLOW_ASSUME_VERIFIED" value="false" />
+      <option name="CLEAR_APP_STORAGE" value="false" />
+      <option name="DYNAMIC_FEATURES_DISABLED_LIST" value="" />
+      <option name="ACTIVITY_EXTRA_FLAGS" value="" />
+      <option name="MODE" value="default_activity" />
+      <option name="RESTORE_ENABLED" value="false" />
+      <option name="RESTORE_FILE" value="" />
+      <option name="RESTORE_FRESH_INSTALL_ONLY" value="false" />
+      <option name="CLEAR_LOGCAT" value="false" />
+      <option name="SHOW_LOGCAT_AUTOMATICALLY" value="false" />
+      <option name="TARGET_SELECTION_MODE" value="DEVICE_AND_SNAPSHOT_COMBO_BOX" />
+      <option name="SELECTED_CLOUD_MATRIX_CONFIGURATION_ID" value="-1" />
+      <option name="SELECTED_CLOUD_MATRIX_PROJECT_ID" value="" />
+      <option name="DEBUGGER_TYPE" value="Auto" />
+      <Auto>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+        <option name="DEBUG_SANDBOX_SDK" value="false" />
+      </Auto>
+      <Hybrid>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+        <option name="DEBUG_SANDBOX_SDK" value="false" />
+      </Hybrid>
+      <Java>
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+        <option name="DEBUG_SANDBOX_SDK" value="false" />
+      </Java>
+      <Native>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+        <option name="DEBUG_SANDBOX_SDK" value="false" />
+      </Native>
+      <Profilers>
+        <option name="ADVANCED_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_CPU_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_CPU_PROFILING_CONFIGURATION_NAME" value="Java/Kotlin Method Sample (legacy)" />
+        <option name="STARTUP_NATIVE_MEMORY_PROFILING_ENABLED" value="false" />
+        <option name="NATIVE_MEMORY_SAMPLE_RATE_BYTES" value="2048" />
+      </Profilers>
+      <option name="DEEP_LINK" value="" />
+      <option name="ACTIVITY" value="" />
+      <option name="ACTIVITY_CLASS" value="" />
+      <option name="SEARCH_ACTIVITY_IN_GLOBAL_SCOPE" value="false" />
+      <option name="SKIP_ACTIVITY_VALIDATION" value="false" />
+      <method v="2">
+        <option name="Android.Gradle.BeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="886b1984-8f2f-4381-ba0f-2d372b74757a" name="Changes" comment="" />
+      <created>1776815152925</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1776815152925</updated>
+    </task>
+    <task id="LOCAL-00001" summary="Game runs">
+      <option name="closed" value="true" />
+      <created>1776910013399</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1776910013399</updated>
+    </task>
+    <task id="LOCAL-00002" summary="26.1 Boots but other lower versions crash">
+      <option name="closed" value="true" />
+      <created>1777059789801</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1777059789801</updated>
+    </task>
+    <task id="LOCAL-00003" summary="All Versions Now Boot">
+      <option name="closed" value="true" />
+      <created>1777063370130</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1777063370130</updated>
+    </task>
+    <task id="LOCAL-00004" summary="Controller Touch Support">
+      <option name="closed" value="true" />
+      <created>1777073426331</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1777073426331</updated>
+    </task>
+    <task id="LOCAL-00005" summary="All Versions Tested Support">
+      <option name="closed" value="true" />
+      <created>1777077025043</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1777077025043</updated>
+    </task>
+    <task id="LOCAL-00006" summary="New UI Modrinth Like">
+      <option name="closed" value="true" />
+      <created>1777080753235</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1777080753235</updated>
+    </task>
+    <task id="LOCAL-00007" summary="Fabric Installation">
+      <option name="closed" value="true" />
+      <created>1777081738661</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1777081738661</updated>
+    </task>
+    <task id="LOCAL-00008" summary="Fabric Forge">
+      <option name="closed" value="true" />
+      <created>1777088948832</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1777088948832</updated>
+    </task>
+    <task id="LOCAL-00009" summary="- Added loader version dropdown in dialog">
+      <option name="closed" value="true" />
+      <created>1777214189083</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1777214189083</updated>
+    </task>
+    <task id="LOCAL-00010" summary="- Delete instances added&#10;- Changed how installs are handled, inherited instance don't install next to each other anymore unless toggled on">
+      <option name="closed" value="true" />
+      <created>1777217069183</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1777217069183</updated>
+    </task>
+    <task id="LOCAL-00011" summary="- Added Renderers&#10;- VulkanMod Support&#10;- Beta 1.7.3 Support">
+      <option name="closed" value="true" />
+      <created>1777235212573</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1777235212573</updated>
+    </task>
+    <task id="LOCAL-00012" summary="- Added Renderers&#10;- VulkanMod Support&#10;- Beta 1.7.3 Support&#10;- Fixed 26.2 Not Closing&#10;- Added Settings overlay">
+      <option name="closed" value="true" />
+      <created>1777236198275</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1777236198275</updated>
+    </task>
+    <task id="LOCAL-00013" summary="- Added Renderers&#10;- VulkanMod Support&#10;- Beta 1.7.3 Support&#10;- Fixed 26.2 Not Closing&#10;- Added Settings overlay&#10;- Legacy4J, Controllable, Controlify Support added">
+      <option name="closed" value="true" />
+      <created>1777251221591</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1777251221591</updated>
+    </task>
+    <task id="LOCAL-00014" summary="- UI Cleanup&#10;- Settings Cleanup">
+      <option name="closed" value="true" />
+      <created>1777321623236</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1777321623236</updated>
+    </task>
+    <task id="LOCAL-00015" summary="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation">
+      <option name="closed" value="true" />
+      <created>1777322524430</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1777322524430</updated>
+    </task>
+    <task id="LOCAL-00016" summary="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)">
+      <option name="closed" value="true" />
+      <created>1777325111287</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1777325111287</updated>
+    </task>
+    <task id="LOCAL-00017" summary="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)">
+      <option name="closed" value="true" />
+      <created>1777341189111</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1777341189111</updated>
+    </task>
+    <task id="LOCAL-00018" summary="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc.">
+      <option name="closed" value="true" />
+      <created>1777342412060</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1777342412061</updated>
+    </task>
+    <task id="LOCAL-00019" summary="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc.">
+      <option name="closed" value="true" />
+      <created>1777342747675</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1777342747675</updated>
+    </task>
+    <task id="LOCAL-00020" summary="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc.&#10;- Delete file paths&#10;- Play worlds directly from list&#10;- Some more UI fixes and changes">
+      <option name="closed" value="true" />
+      <created>1777371425444</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1777371425444</updated>
+    </task>
+    <task id="LOCAL-00021" summary="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc.&#10;- Delete file paths&#10;- Play worlds directly from list&#10;- Some more UI fixes and changes&#10;- Added template for browse cotent">
+      <option name="closed" value="true" />
+      <created>1777373469847</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1777373469847</updated>
+    </task>
+    <task id="LOCAL-00022" summary="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc.&#10;- Delete file paths&#10;- Play worlds directly from list&#10;- Some more UI fixes and changes&#10;- Added template for browse cotent&#10;- Added Modrinth Mod Manager, download, delete, store mod info">
+      <option name="closed" value="true" />
+      <created>1777379998595</created>
+      <option name="number" value="00022" />
+      <option name="presentableId" value="LOCAL-00022" />
+      <option name="project" value="LOCAL" />
+      <updated>1777379998595</updated>
+    </task>
+    <task id="LOCAL-00023" summary="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc.&#10;- Delete file paths&#10;- Play worlds directly from list&#10;- Some more UI fixes and changes&#10;- Added template for browse cotent&#10;- Added Modrinth Mod Manager, download, delete, store mod info&#10;- Added Curseforge download, delete,store metadata">
+      <option name="closed" value="true" />
+      <created>1777382888917</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1777382888917</updated>
+    </task>
+    <task id="LOCAL-00024" summary="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc.&#10;- Delete file paths&#10;- Play worlds directly from list&#10;- Some more UI fixes and changes&#10;- Added template for browse cotent&#10;- Added Modrinth Mod Manager, download, delete, store mod info&#10;- Added Curseforge download, delete,store metadata">
+      <option name="closed" value="true" />
+      <created>1777396908914</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1777396908914</updated>
+    </task>
+    <task id="LOCAL-00025" summary="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc.&#10;- Delete file paths&#10;- Play worlds directly from list&#10;- Some more UI fixes and changes&#10;- Added template for browse cotent&#10;- Added Modrinth Mod Manager, download, delete, store mod info&#10;- Added Curseforge download, delete,store metadata&#10;- Microsoft account login&#10;- Offline account after Microsoft login&#10;- Skin changer option&#10;- On screen button layout&#10;- Controller settings option">
+      <option name="closed" value="true" />
+      <created>1777407785132</created>
+      <option name="number" value="00025" />
+      <option name="presentableId" value="LOCAL-00025" />
+      <option name="project" value="LOCAL" />
+      <updated>1777407785132</updated>
+    </task>
+    <task id="LOCAL-00026" summary="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc.&#10;- Delete file paths&#10;- Play worlds directly from list&#10;- Some more UI fixes and changes&#10;- Added template for browse cotent&#10;- Added Modrinth Mod Manager, download, delete, store mod info&#10;- Added Curseforge download, delete,store metadata&#10;- Microsoft account login&#10;- Offline account after Microsoft login&#10;- Skin changer option&#10;- On screen button layout&#10;- Controller settings option">
+      <option name="closed" value="true" />
+      <created>1777419565916</created>
+      <option name="number" value="00026" />
+      <option name="presentableId" value="LOCAL-00026" />
+      <option name="project" value="LOCAL" />
+      <updated>1777419565916</updated>
+    </task>
+    <task id="LOCAL-00027" summary="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc.&#10;- Delete file paths&#10;- Play worlds directly from list&#10;- Some more UI fixes and changes&#10;- Added template for browse cotent&#10;- Added Modrinth Mod Manager, download, delete, store mod info&#10;- Added Curseforge download, delete,store metadata&#10;- Microsoft account login&#10;- Offline account after Microsoft login&#10;- Skin changer option&#10;- On screen button layout&#10;- Controller settings option">
+      <option name="closed" value="true" />
+      <created>1777465113442</created>
+      <option name="number" value="00027" />
+      <option name="presentableId" value="LOCAL-00027" />
+      <option name="project" value="LOCAL" />
+      <updated>1777465113442</updated>
+    </task>
+    <task id="LOCAL-00028" summary="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc.&#10;- Delete file paths&#10;- Play worlds directly from list&#10;- Some more UI fixes and changes&#10;- Added template for browse cotent&#10;- Added Modrinth Mod Manager, download, delete, store mod info&#10;- Added Curseforge download, delete,store metadata&#10;- Microsoft account login&#10;- Offline account after Microsoft login&#10;- Skin changer option&#10;- On screen button layout&#10;- Controller settings option">
+      <option name="closed" value="true" />
+      <created>1777506336790</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1777506336790</updated>
+    </task>
+    <task id="LOCAL-00029" summary="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc.&#10;- Delete file paths&#10;- Play worlds directly from list&#10;- Some more UI fixes and changes&#10;- Added template for browse cotent&#10;- Added Modrinth Mod Manager, download, delete, store mod info&#10;- Added Curseforge download, delete,store metadata&#10;- Microsoft account login&#10;- Offline account after Microsoft login&#10;- Skin changer option&#10;- On screen button layout&#10;- Controller settings option">
+      <option name="closed" value="true" />
+      <created>1777506344164</created>
+      <option name="number" value="00029" />
+      <option name="presentableId" value="LOCAL-00029" />
+      <option name="project" value="LOCAL" />
+      <updated>1777506344164</updated>
+    </task>
+    <task id="LOCAL-00030" summary="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc.&#10;- Delete file paths&#10;- Play worlds directly from list&#10;- Some more UI fixes and changes&#10;- Added template for browse cotent&#10;- Added Modrinth Mod Manager, download, delete, store mod info&#10;- Added Curseforge download, delete,store metadata&#10;- Microsoft account login&#10;- Offline account after Microsoft login&#10;- Skin changer option&#10;- On screen button layout&#10;- Controller settings option">
+      <option name="closed" value="true" />
+      <created>1777506806137</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1777506806137</updated>
+    </task>
+    <task id="LOCAL-00031" summary="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc.&#10;- Delete file paths&#10;- Play worlds directly from list&#10;- Some more UI fixes and changes&#10;- Added template for browse cotent&#10;- Added Modrinth Mod Manager, download, delete, store mod info&#10;- Added Curseforge download, delete,store metadata&#10;- Microsoft account login&#10;- Offline account after Microsoft login&#10;- Skin changer option&#10;- On screen button layout&#10;- Controller settings option&#10;- Added proper touch controls">
+      <option name="closed" value="true" />
+      <created>1777552919081</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1777552919081</updated>
+    </task>
+    <task id="LOCAL-00032" summary="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc.&#10;- Delete file paths&#10;- Play worlds directly from list&#10;- Some more UI fixes and changes&#10;- Added template for browse cotent&#10;- Added Modrinth Mod Manager, download, delete, store mod info&#10;- Added Curseforge download, delete,store metadata&#10;- Microsoft account login&#10;- Offline account after Microsoft login&#10;- Skin changer option&#10;- On screen button layout&#10;- Controller settings option&#10;- Added proper touch controls">
+      <option name="closed" value="true" />
+      <created>1777567968086</created>
+      <option name="number" value="00032" />
+      <option name="presentableId" value="LOCAL-00032" />
+      <option name="project" value="LOCAL" />
+      <updated>1777567968086</updated>
+    </task>
+    <task id="LOCAL-00033" summary="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc.&#10;- Delete file paths&#10;- Play worlds directly from list&#10;- Some more UI fixes and changes&#10;- Added template for browse cotent&#10;- Added Modrinth Mod Manager, download, delete, store mod info&#10;- Added Curseforge download, delete,store metadata&#10;- Microsoft account login&#10;- Offline account after Microsoft login&#10;- Skin changer option&#10;- On screen button layout&#10;- Controller settings option&#10;- Added proper touch controls">
+      <option name="closed" value="true" />
+      <created>1777571093158</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1777571093158</updated>
+    </task>
+    <task id="LOCAL-00034" summary="- Added Microsoft Skin Changer&#10;- Added more auth lockdown&#10;- Fixed Settings Layout Issues">
+      <option name="closed" value="true" />
+      <created>1777582209862</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1777582209862</updated>
+    </task>
+    <task id="LOCAL-00035" summary="- Added Microsoft Skin Changer&#10;- Added more auth lockdown&#10;- Fixed Settings Layout Issues&#10;- Added more auth blockers">
+      <option name="closed" value="true" />
+      <created>1777584094923</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1777584094923</updated>
+    </task>
+    <task id="LOCAL-00036" summary="- Added Microsoft Skin Changer&#10;- Added more auth lockdown&#10;- Fixed Settings Layout Issues&#10;- Added more auth blockers&#10;- Added block browse content for Vanilla&#10;-">
+      <option name="closed" value="true" />
+      <created>1777587352216</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1777587352216</updated>
+    </task>
+    <task id="LOCAL-00037" summary="- Added Microsoft Skin Changer&#10;- Added more auth lockdown&#10;- Fixed Settings Layout Issues&#10;- Added more auth blockers&#10;- Added block browse content for Vanilla&#10;-Added Version/Loader updater">
+      <option name="closed" value="true" />
+      <created>1777591462585</created>
+      <option name="number" value="00037" />
+      <option name="presentableId" value="LOCAL-00037" />
+      <option name="project" value="LOCAL" />
+      <updated>1777591462585</updated>
+    </task>
+    <task id="LOCAL-00038" summary="- Added Microsoft Skin Changer&#10;- Added more auth lockdown&#10;- Fixed Settings Layout Issues&#10;- Added more auth blockers&#10;- Added block browse content for Vanilla&#10;-Added Version/Loader updater&#10;-Added Modpack downloader">
+      <option name="closed" value="true" />
+      <created>1777594757259</created>
+      <option name="number" value="00038" />
+      <option name="presentableId" value="LOCAL-00038" />
+      <option name="project" value="LOCAL" />
+      <updated>1777594757259</updated>
+    </task>
+    <task id="LOCAL-00039" summary="- Added Microsoft Skin Changer&#10;- Added more auth lockdown&#10;- Fixed Settings Layout Issues&#10;- Added more auth blockers&#10;- Added block browse content for Vanilla&#10;-Added Version/Loader updater&#10;-Added Modpack downloader&#10;-Added Modpack Export/Import Mod/Curse">
+      <option name="closed" value="true" />
+      <created>1777599526033</created>
+      <option name="number" value="00039" />
+      <option name="presentableId" value="LOCAL-00039" />
+      <option name="project" value="LOCAL" />
+      <updated>1777599526033</updated>
+    </task>
+    <task id="LOCAL-00040" summary="- Added Microsoft Skin Changer&#10;- Added more auth lockdown&#10;- Fixed Settings Layout Issues&#10;- Added more auth blockers&#10;- Added block browse content for Vanilla&#10;-Added Version/Loader updater&#10;-Added Modpack downloader&#10;-Added Modpack Export/Import Mod/Curse">
+      <option name="closed" value="true" />
+      <created>1777600186486</created>
+      <option name="number" value="00040" />
+      <option name="presentableId" value="LOCAL-00040" />
+      <option name="project" value="LOCAL" />
+      <updated>1777600186486</updated>
+    </task>
+    <task id="LOCAL-00041" summary="- Added Microsoft Skin Changer&#10;- Added more auth lockdown&#10;- Fixed Settings Layout Issues&#10;- Added more auth blockers&#10;- Added block browse content for Vanilla&#10;-Added Version/Loader updater&#10;-Added Modpack downloader&#10;-Added Modpack Export/Import Mod/Curse">
+      <option name="closed" value="true" />
+      <created>1777601133341</created>
+      <option name="number" value="00041" />
+      <option name="presentableId" value="LOCAL-00041" />
+      <option name="project" value="LOCAL" />
+      <updated>1777601133341</updated>
+    </task>
+    <task id="LOCAL-00042" summary="- Added personal accepted Microsoft login credentials">
+      <option name="closed" value="true" />
+      <created>1777638630778</created>
+      <option name="number" value="00042" />
+      <option name="presentableId" value="LOCAL-00042" />
+      <option name="project" value="LOCAL" />
+      <updated>1777638630778</updated>
+    </task>
+    <task id="LOCAL-00043" summary="- Added personal accepted Microsoft login credentials">
+      <option name="closed" value="true" />
+      <created>1777639254055</created>
+      <option name="number" value="00043" />
+      <option name="presentableId" value="LOCAL-00043" />
+      <option name="project" value="LOCAL" />
+      <updated>1777639254055</updated>
+    </task>
+    <task id="LOCAL-00044" summary="- Added personal accepted Microsoft login credentials&#10;- Updated Privacy Policy/licenses/Readme">
+      <option name="closed" value="true" />
+      <created>1777642878879</created>
+      <option name="number" value="00044" />
+      <option name="presentableId" value="LOCAL-00044" />
+      <option name="project" value="LOCAL" />
+      <updated>1777642878879</updated>
+    </task>
+    <option name="localTasksCounter" value="45" />
+    <servers />
+  </component>
+  <component name="UnknownFeatures">
+    <option featureType="com.intellij.fileTypeFactory" implementationName="*.mk" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <ignored-roots>
+      <path value="$USER_HOME$" />
+      <path value="$PROJECT_DIR$" />
+    </ignored-roots>
+    <MESSAGE value="Fabric Installation" />
+    <MESSAGE value="Fabric Forge" />
+    <MESSAGE value="- Added loader version dropdown in dialog" />
+    <MESSAGE value="- Delete instances added&#10;- Changed how installs are handled, inherited instance don't install next to each other anymore unless toggled on" />
+    <MESSAGE value="- Added Renderers&#10;- VulkanMod Support&#10;- Beta 1.7.3 Support" />
+    <MESSAGE value="- Added Renderers&#10;- VulkanMod Support&#10;- Beta 1.7.3 Support&#10;- Fixed 26.2 Not Closing&#10;- Added Settings overlay" />
+    <MESSAGE value="- Added Renderers&#10;- VulkanMod Support&#10;- Beta 1.7.3 Support&#10;- Fixed 26.2 Not Closing&#10;- Added Settings overlay&#10;- Legacy4J, Controllable, Controlify Support added" />
+    <MESSAGE value="- UI Cleanup&#10;- Settings Cleanup" />
+    <MESSAGE value="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation" />
+    <MESSAGE value="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)" />
+    <MESSAGE value="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc." />
+    <MESSAGE value="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc.&#10;- Delete file paths&#10;- Play worlds directly from list&#10;- Some more UI fixes and changes" />
+    <MESSAGE value="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc.&#10;- Delete file paths&#10;- Play worlds directly from list&#10;- Some more UI fixes and changes&#10;- Added template for browse cotent" />
+    <MESSAGE value="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc.&#10;- Delete file paths&#10;- Play worlds directly from list&#10;- Some more UI fixes and changes&#10;- Added template for browse cotent&#10;- Added Modrinth Mod Manager, download, delete, store mod info" />
+    <MESSAGE value="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc.&#10;- Delete file paths&#10;- Play worlds directly from list&#10;- Some more UI fixes and changes&#10;- Added template for browse cotent&#10;- Added Modrinth Mod Manager, download, delete, store mod info&#10;- Added Curseforge download, delete,store metadata" />
+    <MESSAGE value="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc.&#10;- Delete file paths&#10;- Play worlds directly from list&#10;- Some more UI fixes and changes&#10;- Added template for browse cotent&#10;- Added Modrinth Mod Manager, download, delete, store mod info&#10;- Added Curseforge download, delete,store metadata&#10;- Microsoft account login&#10;- Offline account after Microsoft login&#10;- Skin changer option&#10;- On screen button layout&#10;- Controller settings option" />
+    <MESSAGE value="- UI Cleanup&#10;- Settings Cleanup&#10;- Ram Allocation&#10;- Custom Storage Option (Started)&#10;- Tab layout for mods, shaderpacks, resourcepacks, world&#10;- Option to browse mods/shaders etc which will be the next big project&#10;- Delete, disable mods, packs etc.&#10;- Delete file paths&#10;- Play worlds directly from list&#10;- Some more UI fixes and changes&#10;- Added template for browse cotent&#10;- Added Modrinth Mod Manager, download, delete, store mod info&#10;- Added Curseforge download, delete,store metadata&#10;- Microsoft account login&#10;- Offline account after Microsoft login&#10;- Skin changer option&#10;- On screen button layout&#10;- Controller settings option&#10;- Added proper touch controls" />
+    <MESSAGE value="- Added Microsoft Skin Changer&#10;- Added more auth lockdown&#10;- Fixed Settings Layout Issues" />
+    <MESSAGE value="- Added Microsoft Skin Changer&#10;- Added more auth lockdown&#10;- Fixed Settings Layout Issues&#10;- Added more auth blockers" />
+    <MESSAGE value="- Added Microsoft Skin Changer&#10;- Added more auth lockdown&#10;- Fixed Settings Layout Issues&#10;- Added more auth blockers&#10;- Added block browse content for Vanilla&#10;-" />
+    <MESSAGE value="- Added Microsoft Skin Changer&#10;- Added more auth lockdown&#10;- Fixed Settings Layout Issues&#10;- Added more auth blockers&#10;- Added block browse content for Vanilla&#10;-Added Version/Loader updater" />
+    <MESSAGE value="- Added Microsoft Skin Changer&#10;- Added more auth lockdown&#10;- Fixed Settings Layout Issues&#10;- Added more auth blockers&#10;- Added block browse content for Vanilla&#10;-Added Version/Loader updater&#10;-Added Modpack downloader" />
+    <MESSAGE value="- Added Microsoft Skin Changer&#10;- Added more auth lockdown&#10;- Fixed Settings Layout Issues&#10;- Added more auth blockers&#10;- Added block browse content for Vanilla&#10;-Added Version/Loader updater&#10;-Added Modpack downloader&#10;-Added Modpack Export/Import Mod/Curse" />
+    <MESSAGE value="- Added personal accepted Microsoft login credentials" />
+    <MESSAGE value="- Added personal accepted Microsoft login credentials&#10;- Updated Privacy Policy/licenses/Readme" />
+    <option name="LAST_COMMIT_MESSAGE" value="- Added personal accepted Microsoft login credentials&#10;- Updated Privacy Policy/licenses/Readme" />
+  </component>
+  <component name="play_dynamic_filters_status">
+    <option name="appIdToCheckInfo">
+      <map>
+        <entry key="ca.dnamobile.javalauncher">
+          <value>
+            <CheckInfo lastCheckTimestamp="1777577704045" />
+          </value>
+        </entry>
+        <entry key="ca.dnamobile.javalauncher.test">
+          <value>
+            <CheckInfo lastCheckTimestamp="1777577704028" />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>

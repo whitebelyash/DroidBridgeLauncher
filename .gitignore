@@ -1,0 +1,7 @@
+# Project exclude paths
+/.gradle/
+/app/build/
+/app/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/
+/build/
+/methods_injector_agent/build/
+/methods_injector_agent/build/classes/java/main/
