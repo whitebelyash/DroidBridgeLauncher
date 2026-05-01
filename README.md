@@ -5,7 +5,7 @@
 <h1 align="center">DroidBridge / JavaLauncher</h1>
 
 <p align="center">
-  An independent Android launcher project for users who own Minecraft: Java Edition and want to run Java Edition on Android devices.
+  An independent Android launcher framework project for users who own Minecraft: Java Edition and want to run Java Edition on Android devices.
 </p>
 
 <p align="center">
@@ -13,17 +13,29 @@
   <strong>NOT APPROVED BY OR ASSOCIATED WITH MOJANG, MICROSOFT, OR XBOX.</strong>
 </p>
 
+<p align="center">
+  Microsoft account sign-in, when present in private or production builds, uses Microsoft services and a Microsoft-registered application flow. This only means users authenticate through Microsoft directly. It does not mean Mojang, Microsoft, Xbox, or Minecraft has approved, endorsed, sponsored, reviewed, or is affiliated with this launcher.
+</p>
+
 ---
 
 ## About
 
-DroidBridge / JavaLauncher is developed by **DNA Mobile Applications** as an independent Android launcher project.
+DroidBridge / JavaLauncher is developed by **DNA Mobile Applications** as an independent Android launcher framework and compatibility project.
 
 This project is not affiliated with, endorsed by, sponsored by, or approved by Microsoft, Mojang, Xbox, Minecraft, PojavLauncher, Boardwalk, Amethyst, MojoLauncher, Zalith Launcher, Fold Craft Launcher, or any other third-party launcher project.
 
 Minecraft, Microsoft, Xbox, Mojang, and related names, services, trademarks, and assets belong to their respective owners.
 
-Microsoft authentication support, if present in a private or release build, does **not** mean Microsoft, Mojang, Xbox, or Minecraft has approved, endorsed, sponsored, or reviewed this launcher.
+---
+
+## Microsoft account sign-in clarification
+
+Some private or production builds of DroidBridge / JavaLauncher may allow users to sign in with a Microsoft account through Microsoft services. The sign-in flow is intended to let eligible users authenticate with Microsoft directly and verify their own account access.
+
+A working Microsoft sign-in flow, registered application, redirect URI, or consent screen should not be described as Mojang, Microsoft, Xbox, or Minecraft approving, endorsing, sponsoring, reviewing, or partnering with this launcher. It only means the launcher uses Microsoft identity services for user authentication where that feature is available.
+
+This public source release intentionally does not provide Microsoft account setup instructions, OAuth configuration values, token exchange details, private endpoint details, or production account-service implementation code.
 
 ---
 
@@ -35,34 +47,36 @@ The app icon shown at the top of this README expects this file to exist in the r
 docs/app_icon.png
 ```
 
-Before publishing, copy your launcher icon into that path. For example, you can export or copy your Android launcher icon into `docs/app_icon.png` so GitHub displays it at the top of the README.
+Before publishing, place the PNG app icon in that path so GitHub displays it at the top of the README.
 
 ---
 
 ## Current status
 
-This repository is intended to become a complete Android launcher framework for Minecraft: Java Edition on Android. Depending on the branch, release, or build configuration, it may include experimental, in-progress, or production-ready launcher components.
+This repository is intended to provide the public launcher-side framework, Android UI, settings, instance management, renderer configuration, input handling, legal screens, and compatibility scaffolding for DroidBridge / JavaLauncher.
 
-The project currently focuses on:
+Depending on the branch, release, or build configuration, this repository may include experimental, in-progress, or production-ready launcher components.
+
+The public project currently focuses on:
 
 - Android-native launcher UI and instance management.
-- Account, profile, and local launcher state management.
-- Version metadata handling.
-- Java runtime and LWJGL integration for Android.
+- Local launcher settings and instance state management.
+- Version metadata models and compatibility structures.
+- Java runtime and LWJGL integration scaffolding for Android.
 - Renderer/runtime compatibility work for Android devices.
 - Touch, input, surface, and lifecycle bridge work required to run Java games on Android.
-- Mod, modpack, resource pack, and shader pack management.
+- Mod, modpack, resource pack, and shader pack management UI/framework code.
 - Legal, privacy, and open-source notice screens.
 
 ---
 
 ## Public source release notice
 
-This public source release may intentionally exclude private implementation classes, app credentials, signing configuration, account/authentication internals, game installation internals, and production launcher execution logic.
+This public source release may intentionally exclude private implementation classes, app credentials, signing configuration, account-service integration details, game installation internals, production launcher execution logic, and release-only implementation code.
 
 The public source tree should not include:
 
-- private OAuth credentials;
+- private authentication credentials or app registration details;
 - production signing keys or keystores;
 - private API keys;
 - bundled Minecraft game files, assets, libraries, or proprietary content;
@@ -70,7 +84,9 @@ The public source tree should not include:
 - private installer implementation classes; or
 - private release-only launcher implementation classes.
 
-Users are responsible for owning Minecraft: Java Edition and complying with the Minecraft EULA, Microsoft Services Agreement, Minecraft Usage Guidelines, and any other applicable terms.
+This README intentionally does not provide account-service setup instructions, game installation instructions, private endpoint details, or production release configuration.
+
+Users are responsible for owning Minecraft: Java Edition and complying with the Minecraft EULA, Minecraft Usage Guidelines, and any other applicable terms.
 
 ---
 
@@ -142,7 +158,7 @@ Before publishing binaries, make sure the app includes or links to:
 
 DroidBridge / JavaLauncher is designed to avoid operating a DNA Mobile Applications account server.
 
-Microsoft login, where available, is handled through Microsoft services. Login session data, Minecraft profile data, launcher settings, logs, worlds, mods, and launcher files are intended to remain local to the user’s device unless the user chooses to share, export, upload, or send them through another service.
+Launcher settings, logs, worlds, mods, resource packs, shader packs, and launcher files are intended to remain local to the user’s device unless the user chooses to share, export, upload, or send them through another service.
 
 See `PRIVACY_POLICY.md` for the full privacy policy.
 
@@ -150,7 +166,7 @@ See `PRIVACY_POLICY.md` for the full privacy policy.
 
 ## Build configuration
 
-Do not commit private secrets, signing keys, production keystores, API keys, OAuth credentials, local tokens, or private release configuration to the repository.
+Do not commit private secrets, signing keys, production keystores, API keys, app credentials, local tokens, or private release configuration to the repository.
 
 Recommended private configuration files to keep out of Git:
 
@@ -164,7 +180,7 @@ secrets.properties
 *.keystore
 ```
 
-If a private/full build uses Microsoft login, configure OAuth values through private Gradle properties, local environment variables, or another secure build-time configuration method. Do not publish production credentials in the public repository.
+Private/full builds may use additional release-only source sets or configuration files. Keep those files outside the public repository unless they are safe to publish.
 
 ---
 
@@ -186,7 +202,7 @@ gradlew.bat assembleDebug
 gradlew.bat assembleRelease
 ```
 
-Release builds should be signed with the correct production keystore and should not include debug-only OAuth redirects, debug application IDs, test API keys, or private development configuration.
+Release builds should be signed with the correct production keystore and should not include debug-only application IDs, test API keys, or private development configuration.
 
 ---
 
@@ -202,7 +218,6 @@ Before publishing on Google Play or another app store:
 - Include open-source notices and license texts.
 - Provide source-code links required by LGPL/GPL or other applicable licenses.
 - Review third-party APIs, SDKs, and content services used by the app.
-- Confirm that Microsoft login configuration matches the approved app registration and redirect URI for any private/full release build.
 
 ---
 
