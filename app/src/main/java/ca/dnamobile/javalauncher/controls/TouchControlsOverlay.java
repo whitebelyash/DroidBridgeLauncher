@@ -36,6 +36,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import java.io.File;
+import java.util.UUID;
 
 import org.lwjgl.glfw.CallbackBridge;
 
@@ -60,21 +61,20 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
     @NonNull private TouchControlsLayoutData layoutData = TouchControlsLayoutData.defaultLayout();
     @Nullable private AppMenuListener appMenuListener;
     @Nullable private View passthroughTarget;
-    @Nullable private TextView sizePreviewPercentBadge;
 
     /**
      * Runtime multi-touch routing:
-     * - pointers that begin on a visible touch button are owned by that button
-     * - the first pointer that begins on empty space is forwarded to MinecraftGLSurface
-     *   as a clean single-pointer stream
+     * - pointers that begin on a touch button are owned by that button
+     * - the first pointer that begins on empty space is forwarded to MinecraftGLSurface as
+     *   a clean single-pointer mouse/camera stream
      *
      * Android may reorder pointer indexes when a finger lifts/re-enters. Tracking by
-     * pointer ID keeps the empty-space pointer stable while other fingers hold buttons.
+     * pointer ID keeps the camera finger stable while other fingers hold buttons.
      *
      * Do not forward the full MotionEvent or a split multi-pointer stream to Minecraft
-     * while buttons are held. MinecraftGLSurface expects a normal DOWN/MOVE/UP sequence
-     * for touch menus, hotbar taps and camera look; sending ACTION_POINTER_DOWN/UP while
-     * another finger owns a virtual button can make the camera jump or block GUI taps.
+     * while buttons are held. The game surface expects a normal DOWN/MOVE/UP sequence
+     * for camera look; sending ACTION_POINTER_DOWN/UP while another finger owns a button
+     * can make the camera jump left/right when the look finger is lifted and placed back.
      */
     private static final int NO_POINTER_ID = -1;
     private static final int MOUSE_BUTTON_LEFT = 0;
@@ -96,7 +96,7 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
     private int passthroughPointerId = NO_POINTER_ID;
     private long passthroughDownTime;
 
-    /** In-game hotbar touch routing, mirrors Zalith's separate HotbarView. */
+    /** In-game hotbar touch routing. Keep this separate from camera/buttons. */
     private int hotbarPointerId = NO_POINTER_ID;
     private int hotbarLastSlot = -1;
 
@@ -146,7 +146,6 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
 
     public void setEditMode(boolean editMode) {
         this.editMode = editMode;
-        setVisibility(VISIBLE);
         rebuildWhenSized();
     }
 
@@ -155,24 +154,8 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
     }
 
     public void setControlsVisible(boolean visible) {
-        if (controlsVisible == visible) {
-            setVisibility(VISIBLE);
-            applyControlsVisualState();
-            return;
-        }
-
         controlsVisible = visible;
-
-        // Keep the full-screen overlay attached even when the on-screen buttons are hidden.
-        // The overlay owns the safe touch-to-mouse/camera bridge; setting this view to GONE
-        // drops touch back to the raw Surface path, which breaks look/tap handling on some
-        // controller/gamepad setups until the controls are shown again.
         setVisibility(VISIBLE);
-
-        if (!visible && !editMode) {
-            releaseRuntimeControlInputs();
-        }
-
         applyControlsVisualState();
     }
 
@@ -254,34 +237,10 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
             addView(button, params);
 
             float density = getResources().getDisplayMetrics().density;
-
-            // JavaLauncher-native layouts store X/Y in the same layout units as
-            // Width/Height. Convert fallback X/Y to pixels only when drawing.
-            // Imported Zalith/Mojo/Amethyst layouts keep rawX/rawY formulas, and
-            // those formulas already resolve to final screen pixels.
             float fallbackX = control.rawX == null ? control.x * density : control.x;
             float fallbackY = control.rawY == null ? control.y * density : control.y;
-
-            float resolvedX = ExpressionResolver.resolve(
-                    control.rawX,
-                    fallbackX,
-                    parentWidth,
-                    parentHeight,
-                    width,
-                    height,
-                    density,
-                    layoutData.preferredScale
-            );
-            float resolvedY = ExpressionResolver.resolve(
-                    control.rawY,
-                    fallbackY,
-                    parentWidth,
-                    parentHeight,
-                    width,
-                    height,
-                    density,
-                    layoutData.preferredScale
-            );
+            float resolvedX = ExpressionResolver.resolve(control.rawX, fallbackX, parentWidth, parentHeight, width, height, density, layoutData.preferredScale);
+            float resolvedY = ExpressionResolver.resolve(control.rawY, fallbackY, parentWidth, parentHeight, width, height, density, layoutData.preferredScale);
             resolvedX = Math.max(0f, Math.min(Math.max(0, parentWidth - width), resolvedX));
             resolvedY = Math.max(0f, Math.min(Math.max(0, parentHeight - height), resolvedY));
             button.setX(resolvedX);
@@ -333,6 +292,7 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
         if (textY < hotbarDebugTextPaint.getTextSize() + 2f) {
             textY = touchBounds.bottom + hotbarDebugTextPaint.getTextSize() + 4f;
         }
+
         canvas.drawText(
                 "Hotbar hitbox  scale=" + hitbox.scale
                         + "  xOff=" + ControlsPreferences.getHotbarXOffsetDp(getContext())
@@ -344,7 +304,12 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
 
         for (int slot = 0; slot < TouchHotbarHitbox.SLOT_COUNT; slot++) {
             float centerX = hotbarBounds.left + (slot * hitbox.slotWidth) + (hitbox.slotWidth / 2f);
-            canvas.drawText(String.valueOf(slot + 1), centerX, touchBounds.centerY() + (hotbarDebugTextPaint.getTextSize() / 3f), hotbarDebugTextPaint);
+            canvas.drawText(
+                    String.valueOf(slot + 1),
+                    centerX,
+                    touchBounds.centerY() + (hotbarDebugTextPaint.getTextSize() / 3f),
+                    hotbarDebugTextPaint
+            );
         }
 
         postInvalidateOnAnimation();
@@ -352,10 +317,9 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
 
     @Override
     public boolean dispatchTouchEvent(@NonNull MotionEvent event) {
-        // Keep routing through this overlay whether the visual buttons are shown or hidden.
-        // Empty-space touches are forwarded to MinecraftGLSurface as a clean single-pointer
-        // stream so controller users can still tap menus/hotbar/use screen touch while the
-        // visible virtual buttons continue to work independently.
+        // Keep the full-screen overlay attached whether visual controls are shown or hidden.
+        // Hidden controls should still allow hotbar taps, camera dragging, and menu passthrough
+        // through the same safe routing path instead of dropping to the raw SurfaceView path.
         if (editMode) {
             return super.dispatchTouchEvent(event);
         }
@@ -373,13 +337,10 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
                 return routePointerDown(event, actionIndex);
 
             case MotionEvent.ACTION_POINTER_DOWN:
-                return routePointerDown(event, actionIndex) || hasRuntimeTouchRouting();
+                routePointerDown(event, actionIndex);
+                return hasActiveTouchRoute();
 
             case MotionEvent.ACTION_MOVE:
-                // Critical for joystick controls: pointers owned by a TouchControlButtonView
-                // must keep receiving MOVE events after ACTION_DOWN. Without this, the
-                // joystick knob only updates once when the finger lands, so it feels like
-                // the stick barely moves or does not move the player at all.
                 dispatchActiveControlPointers(event, MotionEvent.ACTION_MOVE);
                 dispatchActiveHotbarPointer(event);
                 dispatchActiveCameraPointer(event);
@@ -425,15 +386,15 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
             float proposedY
     ) {
         float[] snapped = resolveDraggedPosition(view, proposedX, proposedY);
-
         float density = getResources().getDisplayMetrics().density;
+
+        // X/Y are stored in the same user-facing layout units as Width/Height.
+        // The Android view still moves in physical pixels.
         data.x = snapped[0] / Math.max(1f, density);
         data.y = snapped[1] / Math.max(1f, density);
         data.rawX = null;
         data.rawY = null;
 
-        // The Android view still moves in pixels; only the saved layout uses
-        // user-facing layout units.
         view.setX(snapped[0]);
         view.setY(snapped[1]);
         saveLayout();
@@ -542,6 +503,7 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
     private void showEditDialog(@NonNull TouchControlButtonView editingView, @NonNull TouchControlData data) {
         Context context = getContext();
 
+        String originalId = data.id;
         String originalLabel = data.label;
         String originalAction = data.action;
         int originalKeyCode = data.keyCode;
@@ -550,12 +512,14 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
         int originalScrollY = data.scrollY;
         float originalX = data.x;
         float originalY = data.y;
-        float originalViewX = editingView.getX();
-        float originalViewY = editingView.getY();
         float originalWidth = data.width;
         float originalHeight = data.height;
-        float originalOpacity = data.opacity;
         float originalSizePercent = data.sizePercent;
+        float originalOpacity = data.opacity;
+        float originalCornerRadius = data.cornerRadius;
+        float originalStrokeWidth = data.strokeWidth;
+        int originalStrokeColor = data.strokeColor;
+        int originalBackgroundColor = data.backgroundColor;
         boolean originalToggle = data.toggle;
         boolean originalVisibleInGame = data.visibleInGame;
         boolean originalVisibleInMenu = data.visibleInMenu;
@@ -563,17 +527,13 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
         String originalRawY = data.rawY;
 
         float density = getResources().getDisplayMetrics().density;
-        int parentWidth = Math.max(1, getWidth());
-        int parentHeight = Math.max(1, getHeight());
-        int parentWidthUnits = Math.max(1, Math.round(parentWidth / Math.max(0.1f, density)));
-        int parentHeightUnits = Math.max(1, Math.round(parentHeight / Math.max(0.1f, density)));
-        int maxControlWidthDp = Math.max(300, parentWidthUnits);
-        int maxControlHeightDp = Math.max(300, parentHeightUnits);
+        int parentWidthUnits = Math.max(1, Math.round(getWidth() / Math.max(0.1f, density)));
+        int parentHeightUnits = Math.max(1, Math.round(getHeight() / Math.max(0.1f, density)));
 
-        // Imported layouts may still have dynamic rawX/rawY formulas. If the user opens
-        // one in the editor, show the current resolved screen position converted back to
-        // layout units. Once they save, rawX/rawY are cleared and the layout becomes a
-        // normal JavaLauncher-native layout using these X/Y units.
+        // Imported Zalith/Mojo/Amethyst controls may still have dynamic rawX/rawY
+        // formulas. Show their current resolved position converted back into the
+        // same layout units as Width/Height. Saving clears rawX/rawY and keeps
+        // the button exactly where the user sees it.
         float initialLayoutX = data.rawX == null ? data.x : editingView.getX() / Math.max(1f, density);
         float initialLayoutY = data.rawY == null ? data.y : editingView.getY() / Math.max(1f, density);
 
@@ -581,7 +541,7 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
         LinearLayout layout = new LinearLayout(context);
         layout.setOrientation(LinearLayout.VERTICAL);
         int padding = dp(18f);
-        layout.setPadding(padding, dp(10f), padding, dp(10f));
+        layout.setPadding(padding, dp(8f), padding, dp(10f));
         scrollView.addView(layout, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -589,18 +549,18 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
 
         TextView summary = new TextView(context);
         summary.setText("Editing: " + (data.label == null || data.label.trim().isEmpty() ? "Button" : data.label.trim()));
-        summary.setTextSize(15f);
         summary.setTextColor(0xFFE0E0E0);
+        summary.setTextSize(15f);
         summary.setPadding(0, 0, 0, dp(10f));
-        layout.addView(summary, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
+        layout.addView(summary);
 
-        addSectionHeader(layout, "Identity", "Rename the control and choose what it sends to Minecraft.");
+        addSectionHeader(layout, "Identity", "Set the display name, action, ID, and optional key combo.");
 
         EditText label = textField(context, "Button label", data.label, false);
         addFieldRow(layout, "Label", label);
+
+        EditText idField = textField(context, "Stable button ID", data.id, false);
+        addFieldRow(layout, "Button ID", idField);
 
         String[] actionLabels = TouchInputBinding.actionLabels();
         String[] actionValues = TouchInputBinding.actionValues();
@@ -615,6 +575,35 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
         addSpinnerRow(layout, "Binding", bindingSpinner);
         final TouchInputBinding.Option[][] currentOptions = new TouchInputBinding.Option[1][];
 
+        // Keep the raw numeric key list internally for saving, but do not show it
+        // as the main UI. Users should see friendly names like "W + Left Ctrl",
+        // not GLFW key IDs like "87, 341".
+        EditText keyCodes = textField(context, "Internal key IDs", joinKeyCodes(data.normalizedKeyCodes()), false);
+        keyCodes.setVisibility(GONE);
+        layout.addView(keyCodes, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                0
+        ));
+
+        TextView boundKeys = valueLabel(context, "Bound keys: " + TouchInputBinding.friendlyKeyCombo(data.normalizedKeyCodes()));
+        layout.addView(boundKeys);
+
+        Button addSelectedBinding = new Button(context);
+        addSelectedBinding.setText("Add selected key to this button");
+        addSelectedBinding.setAllCaps(false);
+        layout.addView(addSelectedBinding, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+
+        Button clearSelectedBindings = new Button(context);
+        clearSelectedBindings.setText("Clear bound keys");
+        clearSelectedBindings.setAllCaps(false);
+        layout.addView(clearSelectedBindings, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+
         AdapterView.OnItemSelectedListener actionListener = new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
@@ -628,13 +617,18 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
                 );
                 bindingAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
                 bindingSpinner.setAdapter(bindingAdapter);
-                int selected = TouchControlActions.KEY.equals(action) && TouchControlActions.KEY.equals(data.action)
+                boolean keyAction = TouchControlActions.KEY.equals(action);
+                int selected = keyAction && TouchControlActions.KEY.equals(data.action)
                         || TouchControlActions.MOUSE.equals(action) && TouchControlActions.MOUSE.equals(data.action)
                         || TouchControlActions.SCROLL.equals(action) && TouchControlActions.SCROLL.equals(data.action)
                         ? TouchInputBinding.selectedOptionIndex(action, data)
                         : 0;
                 bindingSpinner.setSelection(selected, false);
                 bindingSpinner.setEnabled(options.length > 1);
+                keyCodes.setVisibility(GONE);
+                boundKeys.setVisibility(keyAction ? VISIBLE : GONE);
+                addSelectedBinding.setVisibility(keyAction ? VISIBLE : GONE);
+                clearSelectedBindings.setVisibility(keyAction ? VISIBLE : GONE);
             }
 
             @Override
@@ -644,165 +638,159 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
         actionSpinner.setOnItemSelectedListener(actionListener);
         actionListener.onItemSelected(actionSpinner, actionSpinner, actionSpinner.getSelectedItemPosition(), 0L);
 
-        addSectionHeader(layout, "Position", "X/Y use the same layout units as Width/Height. Example: Width 100 and X 300 means three 100-unit widths from the left.");
+        addSelectedBinding.setOnClickListener(v -> {
+            TouchInputBinding.Option[] options = currentOptions[0] != null ? currentOptions[0] : TouchInputBinding.optionsForAction(TouchControlActions.KEY);
+            if (options.length == 0) return;
+            int index = Math.max(0, Math.min(bindingSpinner.getSelectedItemPosition(), options.length - 1));
+            int value = options[index].value;
+            keyCodes.setText(appendKeyCodeText(keyCodes.getText() == null ? "" : keyCodes.getText().toString(), value));
+            boundKeys.setText("Bound keys: " + TouchInputBinding.friendlyKeyCombo(
+                    parseKeyCodes(keyCodes.getText() == null ? "" : keyCodes.getText().toString(), value)
+            ));
+        });
 
+        clearSelectedBindings.setOnClickListener(v -> {
+            keyCodes.setText("");
+            boundKeys.setText("Bound keys: No keys bound");
+        });
+
+        addSectionHeader(layout, "Position", "X/Y use the same layout units as Width/Height.");
         EditText x = textField(context, "X position", String.valueOf(Math.round(initialLayoutX)), true);
-        addFieldRow(layout, "X position", x);
+        addFieldRow(layout, "X", x);
         SeekBar xSlider = addSlider(layout, parentWidthUnits, Math.round(initialLayoutX));
-
         EditText y = textField(context, "Y position", String.valueOf(Math.round(initialLayoutY)), true);
-        addFieldRow(layout, "Y position", y);
+        addFieldRow(layout, "Y", y);
         SeekBar ySlider = addSlider(layout, parentHeightUnits, Math.round(initialLayoutY));
 
-        addSectionHeader(layout, "Size", "Resize both dimensions together, or tune width and height separately.");
-
+        addSectionHeader(layout, "Size", "Resize both dimensions together or tune width and height separately.");
         EditText width = textField(context, "Width", String.valueOf(Math.round(data.width)), true);
         addFieldRow(layout, "Width", width);
-        SeekBar widthSlider = addSlider(layout, maxControlWidthDp, Math.round(data.width));
-
+        SeekBar widthSlider = addSlider(layout, 400, Math.round(data.width));
         EditText height = textField(context, "Height", String.valueOf(Math.round(data.height)), true);
         addFieldRow(layout, "Height", height);
-        SeekBar heightSlider = addSlider(layout, maxControlHeightDp, Math.round(data.height));
+        SeekBar heightSlider = addSlider(layout, 400, Math.round(data.height));
 
         int initialPercent = Math.round(clamp(data.sizePercent, 30f, 250f));
         TextView sizeLabel = valueLabel(context, "Button size: " + initialPercent + "%");
         layout.addView(sizeLabel);
         SeekBar sizeSlider = addSlider(layout, 250, initialPercent);
 
-        CheckBox showPercentPreview = new CheckBox(context);
-        showPercentPreview.setText("Show size percent while resizing");
-        showPercentPreview.setChecked(ControlsPreferences.isSizePreviewPercentEnabled(context));
-        showPercentPreview.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            ControlsPreferences.setSizePreviewPercentEnabled(context, isChecked);
-            if (!isChecked) hideSizePreviewPercentBadge();
-        });
-        layout.addView(showPercentPreview);
-
-        addSectionHeader(layout, "Appearance", "Adjust visibility and where this control appears.");
-
+        addSectionHeader(layout, "Appearance", "Adjust opacity, rounded corners, and stroke width.");
         EditText opacity = textField(context, "Opacity 0.15 - 1.0", String.valueOf(data.opacity), false);
         addFieldRow(layout, "Opacity", opacity);
-        TextView opacityLabel = valueLabel(context, "Opacity: " + Math.round(clamp(data.opacity, 0.15f, 1f) * 100f) + "%");
-        layout.addView(opacityLabel);
         SeekBar opacitySlider = addSlider(layout, 100, Math.round(clamp(data.opacity, 0.15f, 1f) * 100f));
+
+        EditText cornerRadius = textField(context, "Corner radius", String.valueOf(Math.round(data.cornerRadius)), true);
+        addFieldRow(layout, "Corner radius", cornerRadius);
+        SeekBar cornerSlider = addSlider(layout, 100, Math.round(data.cornerRadius));
+
+        EditText strokeWidth = textField(context, "Stroke width", String.valueOf(Math.round(data.strokeWidth)), true);
+        addFieldRow(layout, "Stroke", strokeWidth);
+        SeekBar strokeSlider = addSlider(layout, 20, Math.round(data.strokeWidth));
+
+        EditText strokeColor = textField(context, "#AARRGGBB or #RRGGBB", formatColor(data.strokeColor), false);
+        addFieldRow(layout, "Border colour", strokeColor);
 
         CheckBox toggle = new CheckBox(context);
         toggle.setText("Toggle button");
+        toggle.setTextColor(0xFFE0E0E0);
         toggle.setChecked(data.toggle);
         layout.addView(toggle);
 
         CheckBox visibleInGame = new CheckBox(context);
         visibleInGame.setText("Visible in game");
+        visibleInGame.setTextColor(0xFFE0E0E0);
         visibleInGame.setChecked(data.visibleInGame);
         layout.addView(visibleInGame);
 
         CheckBox visibleInMenu = new CheckBox(context);
         visibleInMenu.setText("Visible in menu");
+        visibleInMenu.setTextColor(0xFFE0E0E0);
         visibleInMenu.setChecked(data.visibleInMenu);
         layout.addView(visibleInMenu);
 
+        CheckBox virtualMouse = new CheckBox(context);
+        virtualMouse.setText("Show virtual cursor");
+        virtualMouse.setTextColor(0xFFE0E0E0);
+        virtualMouse.setChecked(ControlsPreferences.isVirtualMouseEnabled(context));
+        virtualMouse.setOnCheckedChangeListener((buttonView, isChecked) -> ControlsPreferences.setVirtualMouseEnabled(context, isChecked));
+        layout.addView(virtualMouse);
+
         Button copyButton = new Button(context);
         copyButton.setText("Copy button");
+        copyButton.setAllCaps(false);
         layout.addView(copyButton, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
         ));
 
+        final boolean[] sliderChangingText = new boolean[]{false};
+        final boolean[] textChangingSlider = new boolean[]{false};
         final boolean[] accepted = new boolean[]{false};
         final boolean[] deleted = new boolean[]{false};
-        final boolean[] sliderChangingText = new boolean[]{false};
-        final boolean[] textChangingSliders = new boolean[]{false};
-        final float[] currentPercent = new float[]{initialPercent};
         final AlertDialog[] dialogRef = new AlertDialog[1];
-
+        final float[] currentPercent = new float[]{initialPercent};
         float baseWidth = Math.max(24f, data.width * 100f / Math.max(1f, initialPercent));
         float baseHeight = Math.max(24f, data.height * 100f / Math.max(1f, initialPercent));
 
-        Runnable applyTextPreview = () -> {
+        Runnable applyPreview = () -> {
+            data.label = label.getText() == null ? data.label : label.getText().toString().trim();
+            if (data.label.isEmpty()) data.label = "Button";
             data.x = parseFloat(x, data.x);
             data.y = parseFloat(y, data.y);
             data.width = Math.max(24f, parseFloat(width, data.width));
             data.height = Math.max(24f, parseFloat(height, data.height));
             data.opacity = Math.max(0.15f, Math.min(1f, parseFloat(opacity, data.opacity)));
+            data.cornerRadius = Math.max(0f, parseFloat(cornerRadius, data.cornerRadius));
+            data.strokeWidth = Math.max(0f, parseFloat(strokeWidth, data.strokeWidth));
+            data.strokeColor = parseColorValue(strokeColor.getText() == null ? "" : strokeColor.getText().toString(), data.strokeColor);
             data.rawX = null;
             data.rawY = null;
+            summary.setText("Editing: " + data.label);
             applyControlPreview(editingView, data);
-            summary.setText("Editing: " + (label.getText() == null || label.getText().toString().trim().isEmpty()
-                    ? "Button"
-                    : label.getText().toString().trim()));
         };
 
-        Runnable updateSlidersFromFields = () -> {
-            if (sliderChangingText[0]) return;
-            textChangingSliders[0] = true;
-            setSliderProgress(xSlider, Math.round(parseFloat(x, data.x)));
-            setSliderProgress(ySlider, Math.round(parseFloat(y, data.y)));
-            setSliderProgress(widthSlider, Math.round(Math.max(24f, parseFloat(width, data.width))));
-            setSliderProgress(heightSlider, Math.round(Math.max(24f, parseFloat(height, data.height))));
-            int opacityPercent = Math.round(Math.max(0.15f, Math.min(1f, parseFloat(opacity, data.opacity))) * 100f);
-            setSliderProgress(opacitySlider, opacityPercent);
-            opacityLabel.setText("Opacity: " + opacityPercent + "%");
-            textChangingSliders[0] = false;
-        };
-
-        TextWatcher livePreviewWatcher = new TextWatcher() {
+        TextWatcher watcher = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) { }
             @Override public void afterTextChanged(Editable s) {
-                if (!sliderChangingText[0]) {
-                    float parsedWidth = Math.max(24f, parseFloat(width, data.width));
-                    if (baseWidth > 0f) {
-                        currentPercent[0] = clamp(Math.round(parsedWidth * 100f / baseWidth), 30f, 250f);
-                        data.sizePercent = currentPercent[0];
-                    }
-                    sizeLabel.setText("Button size: custom");
-                    applyTextPreview.run();
-                    updateSlidersFromFields.run();
-                }
+                if (sliderChangingText[0]) return;
+                applyPreview.run();
+                textChangingSlider[0] = true;
+                setSliderProgress(xSlider, Math.round(parseFloat(x, data.x)));
+                setSliderProgress(ySlider, Math.round(parseFloat(y, data.y)));
+                setSliderProgress(widthSlider, Math.round(parseFloat(width, data.width)));
+                setSliderProgress(heightSlider, Math.round(parseFloat(height, data.height)));
+                setSliderProgress(opacitySlider, Math.round(Math.max(0.15f, Math.min(1f, parseFloat(opacity, data.opacity))) * 100f));
+                setSliderProgress(cornerSlider, Math.round(parseFloat(cornerRadius, data.cornerRadius)));
+                setSliderProgress(strokeSlider, Math.round(parseFloat(strokeWidth, data.strokeWidth)));
+                textChangingSlider[0] = false;
             }
         };
-        label.addTextChangedListener(livePreviewWatcher);
-        x.addTextChangedListener(livePreviewWatcher);
-        y.addTextChangedListener(livePreviewWatcher);
-        width.addTextChangedListener(livePreviewWatcher);
-        height.addTextChangedListener(livePreviewWatcher);
-        opacity.addTextChangedListener(livePreviewWatcher);
+        label.addTextChangedListener(watcher);
+        x.addTextChangedListener(watcher);
+        y.addTextChangedListener(watcher);
+        width.addTextChangedListener(watcher);
+        height.addTextChangedListener(watcher);
+        opacity.addTextChangedListener(watcher);
+        cornerRadius.addTextChangedListener(watcher);
+        strokeWidth.addTextChangedListener(watcher);
+        strokeColor.addTextChangedListener(watcher);
 
-        addPreviewSliderListener(xSlider, dialogRef, () -> {
-            if (textChangingSliders[0]) return;
-            sliderChangingText[0] = true;
-            x.setText(String.valueOf(xSlider.getProgress()));
-            sliderChangingText[0] = false;
-            applyTextPreview.run();
+        addPreviewSliderListener(xSlider, dialogRef, () -> { if (!textChangingSlider[0]) setTextFromSlider(x, xSlider); });
+        addPreviewSliderListener(ySlider, dialogRef, () -> { if (!textChangingSlider[0]) setTextFromSlider(y, ySlider); });
+        addPreviewSliderListener(widthSlider, dialogRef, () -> { if (!textChangingSlider[0]) setTextFromSlider(width, widthSlider); });
+        addPreviewSliderListener(heightSlider, dialogRef, () -> { if (!textChangingSlider[0]) setTextFromSlider(height, heightSlider); });
+        addPreviewSliderListener(opacitySlider, dialogRef, () -> {
+            if (!textChangingSlider[0]) {
+                sliderChangingText[0] = true;
+                opacity.setText(String.valueOf(Math.max(15, opacitySlider.getProgress()) / 100f));
+                sliderChangingText[0] = false;
+                applyPreview.run();
+            }
         });
-
-        addPreviewSliderListener(ySlider, dialogRef, () -> {
-            if (textChangingSliders[0]) return;
-            sliderChangingText[0] = true;
-            y.setText(String.valueOf(ySlider.getProgress()));
-            sliderChangingText[0] = false;
-            applyTextPreview.run();
-        });
-
-        addPreviewSliderListener(widthSlider, dialogRef, () -> {
-            if (textChangingSliders[0]) return;
-            int value = Math.max(24, widthSlider.getProgress());
-            sliderChangingText[0] = true;
-            width.setText(String.valueOf(value));
-            sliderChangingText[0] = false;
-            sizeLabel.setText("Button size: custom");
-            applyTextPreview.run();
-        });
-
-        addPreviewSliderListener(heightSlider, dialogRef, () -> {
-            if (textChangingSliders[0]) return;
-            int value = Math.max(24, heightSlider.getProgress());
-            sliderChangingText[0] = true;
-            height.setText(String.valueOf(value));
-            sliderChangingText[0] = false;
-            sizeLabel.setText("Button size: custom");
-            applyTextPreview.run();
-        });
+        addPreviewSliderListener(cornerSlider, dialogRef, () -> { if (!textChangingSlider[0]) setTextFromSlider(cornerRadius, cornerSlider); });
+        addPreviewSliderListener(strokeSlider, dialogRef, () -> { if (!textChangingSlider[0]) setTextFromSlider(strokeWidth, strokeSlider); });
 
         sizeSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
@@ -811,73 +799,16 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
                 currentPercent[0] = percent;
                 data.sizePercent = percent;
                 sizeLabel.setText("Button size: " + percent + "%");
-                if (fromUser && ControlsPreferences.isSizePreviewPercentEnabled(context)) {
-                    showSizePreviewPercentBadge(editingView, percent);
-                }
                 if (fromUser) {
                     sliderChangingText[0] = true;
                     width.setText(String.valueOf(Math.max(24, Math.round(baseWidth * percent / 100f))));
                     height.setText(String.valueOf(Math.max(24, Math.round(baseHeight * percent / 100f))));
                     sliderChangingText[0] = false;
-                    applyTextPreview.run();
-                    updateSlidersFromFields.run();
+                    applyPreview.run();
                 }
             }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-                setEditDialogPreviewAlpha(dialogRef[0], true);
-                if (ControlsPreferences.isSizePreviewPercentEnabled(context)) {
-                    showSizePreviewPercentBadge(editingView, Math.round(currentPercent[0]));
-                }
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-                setEditDialogPreviewAlpha(dialogRef[0], false);
-                hideSizePreviewPercentBadge();
-            }
-        });
-
-        addPreviewSliderListener(opacitySlider, dialogRef, () -> {
-            if (textChangingSliders[0]) return;
-            int value = Math.max(15, opacitySlider.getProgress());
-            opacityLabel.setText("Opacity: " + value + "%");
-            sliderChangingText[0] = true;
-            opacity.setText(String.valueOf(value / 100f));
-            sliderChangingText[0] = false;
-            applyTextPreview.run();
-        });
-
-        copyButton.setOnClickListener(view -> {
-            try {
-                TouchControlData copy = createCopyFromDialog(
-                        data,
-                        label,
-                        actionSpinner,
-                        actionValues,
-                        bindingSpinner,
-                        currentOptions[0],
-                        x,
-                        y,
-                        width,
-                        height,
-                        opacity,
-                        toggle,
-                        visibleInGame,
-                        visibleInMenu,
-                        currentPercent[0]
-                );
-                accepted[0] = true;
-                layoutData.controls.add(copy);
-                saveLayout();
-                if (dialogRef[0] != null) dialogRef[0].dismiss();
-                Toast.makeText(getContext(), "Copied " + copy.label, Toast.LENGTH_SHORT).show();
-                rebuildWhenSized();
-            } catch (Throwable throwable) {
-                Logging.e(TAG, "Unable to copy touch control", throwable);
-                Toast.makeText(getContext(), "Copy failed: " + throwable.getMessage(), Toast.LENGTH_LONG).show();
-            }
+            @Override public void onStartTrackingTouch(SeekBar seekBar) { setEditDialogPreviewAlpha(dialogRef[0], true); }
+            @Override public void onStopTrackingTouch(SeekBar seekBar) { setEditDialogPreviewAlpha(dialogRef[0], false); }
         });
 
         AlertDialog dialog = new AlertDialog.Builder(context)
@@ -889,7 +820,22 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
                 .create();
         dialogRef[0] = dialog;
 
+        copyButton.setOnClickListener(v -> {
+            TouchControlData copy = data.copy();
+            copy.id = UUID.randomUUID().toString();
+            copy.label = data.label + " Copy";
+            copy.x = data.x + 24f;
+            copy.y = data.y + 24f;
+            layoutData.controls.add(copy);
+            accepted[0] = true;
+            saveLayout();
+            rebuildWhenSized();
+            Toast.makeText(context, "Copied " + data.label, Toast.LENGTH_SHORT).show();
+            dialog.dismiss();
+        });
+
         dialog.setOnShowListener(shown -> {
+            styleDialogWindow(dialog);
             dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(button -> {
                 deleted[0] = true;
                 layoutData.controls.remove(data);
@@ -897,35 +843,34 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
                 rebuildWhenSized();
                 dialog.dismiss();
             });
-
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(button -> {
                 String oldLabel = originalLabel;
                 String newLabel = label.getText() == null ? oldLabel : label.getText().toString().trim();
-
                 int actionPosition = Math.max(0, actionSpinner.getSelectedItemPosition());
                 String action = actionValues[Math.min(actionPosition, actionValues.length - 1)];
-                TouchInputBinding.Option[] options = currentOptions[0] != null
-                        ? currentOptions[0]
-                        : TouchInputBinding.optionsForAction(action);
+                TouchInputBinding.Option[] options = currentOptions[0] != null ? currentOptions[0] : TouchInputBinding.optionsForAction(action);
                 int bindingPosition = Math.max(0, bindingSpinner.getSelectedItemPosition());
                 TouchInputBinding.Option option = options[Math.min(bindingPosition, options.length - 1)];
                 TouchInputBinding.applyOption(data, action, option);
 
-                if (TouchInputBinding.isDefaultLabel(newLabel) || oldLabel.equals(newLabel)) {
-                    newLabel = option.label;
-                    if (TouchControlActions.MENU.equals(action)) newLabel = "Menu";
-                    if (TouchControlActions.TOGGLE_CONTROLS.equals(action)) newLabel = "Hide";
-                    if (TouchControlActions.KEYBOARD.equals(action)) newLabel = "Keyboard";
-                    if (TouchControlActions.JOYSTICK.equals(action)) newLabel = "Joystick";
+                if (TouchControlActions.KEY.equals(action)) {
+                    int[] parsedKeys = parseKeyCodes(keyCodes.getText() == null ? "" : keyCodes.getText().toString(), option.value);
+                    data.setKeyCodes(parsedKeys);
                 }
-                data.label = newLabel.trim().isEmpty() ? "Button" : newLabel.trim();
 
+                // Preserve exactly what the user typed in the Label field.
+                // Changing the binding should never rename an existing/custom button.
+                data.id = safeControlId(idField.getText() == null ? "" : idField.getText().toString());
+                data.label = newLabel.trim().isEmpty() ? "Button" : newLabel.trim();
                 data.x = parseFloat(x, data.x);
                 data.y = parseFloat(y, data.y);
                 data.width = Math.max(24f, parseFloat(width, data.width));
                 data.height = Math.max(24f, parseFloat(height, data.height));
                 data.sizePercent = clamp(currentPercent[0], 30f, 250f);
                 data.opacity = Math.max(0.15f, Math.min(1f, parseFloat(opacity, data.opacity)));
+                data.cornerRadius = Math.max(0f, parseFloat(cornerRadius, data.cornerRadius));
+                data.strokeWidth = Math.max(0f, parseFloat(strokeWidth, data.strokeWidth));
+                data.strokeColor = parseColorValue(strokeColor.getText() == null ? "" : strokeColor.getText().toString(), data.strokeColor);
                 data.toggle = toggle.isChecked();
                 data.visibleInGame = visibleInGame.isChecked();
                 data.visibleInMenu = visibleInMenu.isChecked();
@@ -940,31 +885,30 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
 
         dialog.setOnDismissListener(dismissed -> {
             setEditDialogPreviewAlpha(dialog, false);
-            hideSizePreviewPercentBadge();
             if (!accepted[0] && !deleted[0]) {
-                restoreEditPreview(
-                        editingView,
-                        data,
-                        originalLabel,
-                        originalAction,
-                        originalKeyCode,
-                        originalKeyCodes,
-                        originalMouseButton,
-                        originalScrollY,
-                        originalX,
-                        originalY,
-                        originalViewX,
-                        originalViewY,
-                        originalWidth,
-                        originalHeight,
-                        originalOpacity,
-                        originalSizePercent,
-                        originalToggle,
-                        originalVisibleInGame,
-                        originalVisibleInMenu,
-                        originalRawX,
-                        originalRawY
-                );
+                data.id = originalId;
+                data.label = originalLabel;
+                data.action = originalAction;
+                data.keyCode = originalKeyCode;
+                data.keyCodes = originalKeyCodes;
+                data.mouseButton = originalMouseButton;
+                data.scrollY = originalScrollY;
+                data.x = originalX;
+                data.y = originalY;
+                data.width = originalWidth;
+                data.height = originalHeight;
+                data.sizePercent = originalSizePercent;
+                data.opacity = originalOpacity;
+                data.cornerRadius = originalCornerRadius;
+                data.strokeWidth = originalStrokeWidth;
+                data.strokeColor = originalStrokeColor;
+                data.backgroundColor = originalBackgroundColor;
+                data.toggle = originalToggle;
+                data.visibleInGame = originalVisibleInGame;
+                data.visibleInMenu = originalVisibleInMenu;
+                data.rawX = originalRawX;
+                data.rawY = originalRawY;
+                rebuildWhenSized();
             }
         });
 
@@ -974,35 +918,18 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
     private void addSectionHeader(@NonNull LinearLayout parent, @NonNull String title, @Nullable String subtitle) {
         TextView header = new TextView(getContext());
         header.setText(title);
-        header.setTextSize(16f);
         header.setTextColor(Color.WHITE);
+        header.setTextSize(16f);
         header.setPadding(0, dp(14f), 0, dp(2f));
-        parent.addView(header, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
-
+        parent.addView(header);
         if (subtitle != null && !subtitle.trim().isEmpty()) {
             TextView sub = new TextView(getContext());
             sub.setText(subtitle);
-            sub.setTextSize(12f);
             sub.setTextColor(0xFFBDBDBD);
+            sub.setTextSize(12f);
             sub.setPadding(0, 0, 0, dp(6f));
-            parent.addView(sub, new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-            ));
+            parent.addView(sub);
         }
-    }
-
-    @NonNull
-    private TextView valueLabel(@NonNull Context context, @NonNull String text) {
-        TextView label = new TextView(context);
-        label.setText(text);
-        label.setTextSize(13f);
-        label.setTextColor(0xFFE0E0E0);
-        label.setPadding(0, dp(4f), 0, dp(2f));
-        return label;
     }
 
     private void addFieldRow(@NonNull LinearLayout parent, @NonNull String title, @NonNull EditText field) {
@@ -1010,17 +937,13 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(android.view.Gravity.CENTER_VERTICAL);
         row.setPadding(0, dp(4f), 0, dp(4f));
-
         TextView label = new TextView(getContext());
         label.setText(title);
-        label.setTextSize(13f);
         label.setTextColor(0xFFE0E0E0);
+        label.setTextSize(13f);
         row.addView(label, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.85f));
         row.addView(field, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.8f));
-        parent.addView(row, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
+        parent.addView(row);
     }
 
     private void addSpinnerRow(@NonNull LinearLayout parent, @NonNull String title, @NonNull Spinner spinner) {
@@ -1028,196 +951,53 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(android.view.Gravity.CENTER_VERTICAL);
         row.setPadding(0, dp(4f), 0, dp(4f));
-
         TextView label = new TextView(getContext());
         label.setText(title);
-        label.setTextSize(13f);
         label.setTextColor(0xFFE0E0E0);
+        label.setTextSize(13f);
         row.addView(label, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.85f));
         row.addView(spinner, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.8f));
-        parent.addView(row, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
+        parent.addView(row);
+    }
+
+    @NonNull
+    private TextView valueLabel(@NonNull Context context, @NonNull String text) {
+        TextView label = new TextView(context);
+        label.setText(text);
+        label.setTextColor(0xFFE0E0E0);
+        label.setTextSize(13f);
+        label.setPadding(0, dp(4f), 0, dp(2f));
+        return label;
     }
 
     @NonNull
     private SeekBar addSlider(@NonNull LinearLayout parent, int max, int value) {
         SeekBar slider = new SeekBar(getContext());
         slider.setMax(Math.max(1, max));
-        setSliderProgress(slider, Math.max(0, value));
-        slider.setPadding(0, 0, 0, dp(2f));
-        parent.addView(slider, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
+        setSliderProgress(slider, value);
+        parent.addView(slider, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         return slider;
     }
 
-    private void addPreviewSliderListener(
-            @NonNull SeekBar slider,
-            @NonNull AlertDialog[] dialogRef,
-            @NonNull Runnable onUserChange
-    ) {
+    private void addPreviewSliderListener(@NonNull SeekBar slider, @NonNull AlertDialog[] dialogRef, @NonNull Runnable onUserChange) {
         slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if (fromUser) onUserChange.run();
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-                setEditDialogPreviewAlpha(dialogRef[0], true);
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-                setEditDialogPreviewAlpha(dialogRef[0], false);
-            }
+            @Override public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) { if (fromUser) onUserChange.run(); }
+            @Override public void onStartTrackingTouch(SeekBar seekBar) { setEditDialogPreviewAlpha(dialogRef[0], true); }
+            @Override public void onStopTrackingTouch(SeekBar seekBar) { setEditDialogPreviewAlpha(dialogRef[0], false); }
         });
+    }
+
+    private void setTextFromSlider(@NonNull EditText field, @NonNull SeekBar slider) {
+        field.setText(String.valueOf(slider.getProgress()));
     }
 
     private void setSliderProgress(@NonNull SeekBar slider, int value) {
         int progress = Math.max(0, Math.min(slider.getMax(), value));
-        if (slider.getProgress() != progress) {
-            slider.setProgress(progress);
-        }
-    }
-    
-    private TouchControlData createCopyFromDialog(
-             TouchControlData source,
-             EditText labelField,
-             Spinner actionSpinner,
-             String[] actionValues,
-             Spinner bindingSpinner,
-             TouchInputBinding.Option[] currentOptions,
-             EditText xField,
-             EditText yField,
-             EditText widthField,
-             EditText heightField,
-             EditText opacityField,
-             CheckBox toggleField,
-             CheckBox visibleInGameField,
-             CheckBox visibleInMenuField,
-            float currentPercent
-    ) {
-        TouchControlData copy = source.copy();
-
-        int actionPosition = Math.max(0, actionSpinner.getSelectedItemPosition());
-        String action = actionValues[Math.min(actionPosition, actionValues.length - 1)];
-        TouchInputBinding.Option[] options = currentOptions != null
-                ? currentOptions
-                : TouchInputBinding.optionsForAction(action);
-        int bindingPosition = Math.max(0, bindingSpinner.getSelectedItemPosition());
-        TouchInputBinding.Option option = options[Math.min(bindingPosition, options.length - 1)];
-        TouchInputBinding.applyOption(copy, action, option);
-
-        String newLabel = labelField.getText() == null ? source.label : labelField.getText().toString().trim();
-        if (TouchInputBinding.isDefaultLabel(newLabel)) {
-            newLabel = option.label;
-            if (TouchControlActions.MENU.equals(action)) newLabel = "Menu";
-            if (TouchControlActions.TOGGLE_CONTROLS.equals(action)) newLabel = "Hide";
-            if (TouchControlActions.KEYBOARD.equals(action)) newLabel = "Keyboard";
-            if (TouchControlActions.JOYSTICK.equals(action)) newLabel = "Joystick";
-        }
-        copy.label = newLabel.trim().isEmpty() ? "Button" : newLabel.trim();
-
-        float density = getResources().getDisplayMetrics().density;
-        float copyWidth = Math.max(24f, parseFloat(widthField, source.width));
-        float copyHeight = Math.max(24f, parseFloat(heightField, source.height));
-        // Copy offset is in layout units too, so a copied 100-wide button can
-        // still be reasoned about in the same unit system.
-        float offsetUnits = 24f;
-        float widthPx = Math.max(32f, copyWidth * density);
-        float heightPx = Math.max(32f, copyHeight * density);
-        float maxXUnits = Math.max(0f, (getWidth() - widthPx) / Math.max(1f, density));
-        float maxYUnits = Math.max(0f, (getHeight() - heightPx) / Math.max(1f, density));
-
-        copy.x = clamp(parseFloat(xField, source.x) + offsetUnits, 0f, maxXUnits);
-        copy.y = clamp(parseFloat(yField, source.y) + offsetUnits, 0f, maxYUnits);
-        copy.width = copyWidth;
-        copy.height = copyHeight;
-        copy.sizePercent = clamp(currentPercent, 30f, 250f);
-        copy.opacity = Math.max(0.15f, Math.min(1f, parseFloat(opacityField, source.opacity)));
-        copy.toggle = toggleField.isChecked();
-        copy.visibleInGame = visibleInGameField.isChecked();
-        copy.visibleInMenu = visibleInMenuField.isChecked();
-        copy.rawX = null;
-        copy.rawY = null;
-        return copy;
-    }
-
-    private void showSizePreviewPercentBadge(@NonNull TouchControlButtonView editingView, int percent) {
-        if (!ControlsPreferences.isSizePreviewPercentEnabled(getContext())) {
-            hideSizePreviewPercentBadge();
-            return;
-        }
-
-        TextView badge = sizePreviewPercentBadge;
-        if (badge == null) {
-            badge = new TextView(getContext());
-            badge.setTextColor(Color.WHITE);
-            badge.setTextSize(26f);
-            badge.setGravity(android.view.Gravity.CENTER);
-            badge.setIncludeFontPadding(false);
-            badge.setPadding(dp(14f), dp(8f), dp(14f), dp(8f));
-            badge.setBackground(makeSizePreviewBadgeBackground());
-            badge.setClickable(false);
-            badge.setFocusable(false);
-            sizePreviewPercentBadge = badge;
-            addView(badge, new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-            ));
-        }
-
-        badge.setText(percent + "%");
-        badge.setVisibility(VISIBLE);
-        badge.bringToFront();
-
-        final TextView badgeForPost = badge;
-        badgeForPost.post(() -> {
-            if (sizePreviewPercentBadge != badgeForPost) return;
-
-            float badgeWidth = badgeForPost.getWidth() > 0 ? badgeForPost.getWidth() : dp(86f);
-            float badgeHeight = badgeForPost.getHeight() > 0 ? badgeForPost.getHeight() : dp(42f);
-            float badgeX = editingView.getX() + (editingView.getWidth() / 2f) - (badgeWidth / 2f);
-            float badgeY = editingView.getY() - badgeHeight - dp(12f);
-
-            if (badgeY < dp(8f)) {
-                badgeY = editingView.getY() + editingView.getHeight() + dp(12f);
-            }
-
-            badgeForPost.setX(clamp(badgeX, dp(8f), Math.max(dp(8f), getWidth() - badgeWidth - dp(8f))));
-            badgeForPost.setY(clamp(badgeY, dp(8f), Math.max(dp(8f), getHeight() - badgeHeight - dp(8f))));
-        });
-    }
-
-    private void hideSizePreviewPercentBadge() {
-        if (sizePreviewPercentBadge == null) return;
-        removeView(sizePreviewPercentBadge);
-        sizePreviewPercentBadge = null;
-    }
-
-    @NonNull
-    private GradientDrawable makeSizePreviewBadgeBackground() {
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(0xDD000000);
-        drawable.setStroke(Math.max(1, Math.round(dp(1.5f))), 0xCCFFFFFF);
-        drawable.setCornerRadius(dp(14f));
-        return drawable;
-    }
-
-    private int dp(float value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
+        if (slider.getProgress() != progress) slider.setProgress(progress);
     }
 
     private void setEditDialogPreviewAlpha(@Nullable AlertDialog dialog, boolean previewing) {
         if (dialog == null || dialog.getWindow() == null) return;
-
-        // While dragging the size slider, make the dialog barely visible so the user
-        // can see the live-resized touch button/joystick underneath. Restore it as
-        // soon as the user lifts their finger or the dialog closes.
         dialog.getWindow().setDimAmount(previewing ? 0.02f : 0.32f);
         dialog.getWindow().getDecorView().setAlpha(previewing ? 0.12f : 1.0f);
     }
@@ -1236,73 +1016,95 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
             view.setLayoutParams(params);
         }
 
-        // X/Y are saved in layout units, just like width/height. Convert to
-        // pixels only when positioning the Android view.
         view.setX(clamp(data.x * density, 0f, Math.max(0f, getWidth() - width)));
         view.setY(clamp(data.y * density, 0f, Math.max(0f, getHeight() - height)));
         view.setText(data.label);
         view.setAlpha(Math.max(0.15f, Math.min(1f, data.opacity)) * ControlsPreferences.getGlobalOpacity(getContext()));
+        view.refreshVisualState();
         view.requestLayout();
         view.invalidate();
     }
 
-    private void restoreEditPreview(
-            @NonNull TouchControlButtonView view,
-            @NonNull TouchControlData data,
-            @NonNull String label,
-            @NonNull String action,
-            int keyCode,
-            @NonNull int[] keyCodes,
-            int mouseButton,
-            int scrollY,
-            float x,
-            float y,
-            float viewX,
-            float viewY,
-            float width,
-            float height,
-            float opacity,
-            float sizePercent,
-            boolean toggle,
-            boolean visibleInGame,
-            boolean visibleInMenu,
-            @Nullable String rawX,
-            @Nullable String rawY
-    ) {
-        data.label = label;
-        data.action = action;
-        data.keyCode = keyCode;
-        data.keyCodes = keyCodes;
-        data.mouseButton = mouseButton;
-        data.scrollY = scrollY;
-        data.x = x;
-        data.y = y;
-        data.width = width;
-        data.height = height;
-        data.opacity = opacity;
-        data.sizePercent = sizePercent;
-        data.toggle = toggle;
-        data.visibleInGame = visibleInGame;
-        data.visibleInMenu = visibleInMenu;
-        data.rawX = rawX;
-        data.rawY = rawY;
+    private void styleDialogWindow(@NonNull AlertDialog dialog) {
+        if (dialog.getWindow() == null) return;
+        dialog.getWindow().setBackgroundDrawable(makeDialogBackground());
+    }
 
-        float density = getResources().getDisplayMetrics().density;
-        int pxWidth = Math.max(32, Math.round(width * density));
-        int pxHeight = Math.max(32, Math.round(height * density));
-        ViewGroup.LayoutParams params = view.getLayoutParams();
-        if (params != null) {
-            params.width = pxWidth;
-            params.height = pxHeight;
-            view.setLayoutParams(params);
+    @NonNull
+    private GradientDrawable makeDialogBackground() {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(0xEE202124);
+        drawable.setCornerRadius(dp(22f));
+        drawable.setStroke(Math.max(1, dp(1f)), 0x44FFFFFF);
+        return drawable;
+    }
+
+    private int[] parseKeyCodes(@NonNull String text, int fallback) {
+        String[] parts = text.split("[,\\s]+");
+        java.util.ArrayList<Integer> values = new java.util.ArrayList<>();
+        for (String part : parts) {
+            if (part == null || part.trim().isEmpty()) continue;
+            try { values.add(Integer.parseInt(part.trim())); } catch (Throwable ignored) { }
         }
-        view.setX(viewX);
-        view.setY(viewY);
-        view.setText(label);
-        view.setAlpha(Math.max(0.15f, Math.min(1f, opacity)) * ControlsPreferences.getGlobalOpacity(getContext()));
-        view.requestLayout();
-        view.invalidate();
+        if (values.isEmpty()) return new int[]{fallback};
+        int[] result = new int[values.size()];
+        for (int i = 0; i < values.size(); i++) result[i] = values.get(i);
+        return result;
     }
+
+    @NonNull
+    private String joinKeyCodes(@NonNull int[] codes) {
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < codes.length; i++) {
+            if (i > 0) builder.append(", ");
+            builder.append(codes[i]);
+        }
+        return builder.toString();
+    }
+
+    @NonNull
+    private String appendKeyCodeText(@NonNull String current, int value) {
+        String trimmed = current.trim();
+        if (trimmed.isEmpty()) return String.valueOf(value);
+        for (String part : trimmed.split("[,\\s]+")) {
+            try { if (Integer.parseInt(part.trim()) == value) return trimmed; } catch (Throwable ignored) { }
+        }
+        return trimmed + ", " + value;
+    }
+
+    @NonNull
+    private String safeControlId(@NonNull String value) {
+        String trimmed = value.trim();
+        return trimmed.isEmpty() || "null".equalsIgnoreCase(trimmed) ? UUID.randomUUID().toString() : trimmed;
+    }
+
+    @NonNull
+    private static String formatColor(int color) {
+        return String.format(java.util.Locale.US, "#%08X", color);
+    }
+
+    private static int parseColorValue(@NonNull String value, int fallback) {
+        String text = value.trim();
+        if (text.isEmpty()) return fallback;
+        try {
+            if (!text.startsWith("#")) text = "#" + text;
+            if (text.length() == 7) {
+                // #RRGGBB => force fully opaque border.
+                return (int) (0xFF000000L | Long.parseLong(text.substring(1), 16));
+            }
+            if (text.length() == 9) {
+                return (int) Long.parseLong(text.substring(1), 16);
+            }
+            return Color.parseColor(text);
+        } catch (Throwable ignored) {
+            return fallback;
+        }
+    }
+
+    private int dp(float value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
     @NonNull
     private static TextView labelView(@NonNull Context context, @NonNull String text) {
         TextView view = new TextView(context);
@@ -1342,38 +1144,20 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
         int pointerId = event.getPointerId(pointerIndex);
         float x = event.getX(pointerIndex);
         float y = event.getY(pointerIndex);
+        boolean grabbed = isMouseGrabbed();
 
-        if (isMouseGrabbed()) {
-            // In grabbed/gameplay mode the real Minecraft hotbar must win over visible
-            // launcher controls. Otherwise a visible control, joystick, or imported
-            // Zalith button whose rectangle overlaps the bottom of the screen can steal
-            // the touch before the hotbar hitbox ever sees it. This was the regression
-            // where the hotbar only worked after hiding touch controls.
+        if (grabbed) {
+            // Virtual cursor visibility must never change touch routing.
+            // In a grabbed world, the real Minecraft hotbar still needs to win
+            // so normal touch-only users can select slots whether the cursor is
+            // shown or hidden.
             int hotbarSlot = hotbarSlotForTouch(x, y);
             if (hotbarSlot >= 0) {
                 startHotbarPointer(pointerId, hotbarSlot);
                 return true;
             }
-
-            TouchControlButtonView control = controlsVisible ? findControlUnder(x, y) : null;
-            if (control != null) {
-                controlPointerTargets.put(pointerId, control);
-                dispatchSinglePointerToControl(event, pointerIndex, MotionEvent.ACTION_DOWN, control);
-                return true;
-            }
-
-            // Do not forward empty gameplay touches through the raw SurfaceView/TextureView
-            // path. That path only has one touch tracker and breaks when a virtual button
-            // finger and a camera finger are down at the same time.
-            if (cameraPointerId == NO_POINTER_ID) {
-                startCameraPointer(event, pointerIndex, pointerId);
-            }
-            return true;
         }
 
-        // Menu/inventory mode is not grabbed. In this state launcher controls should still
-        // be tappable first, then empty screen touches pass through as normal absolute GUI
-        // mouse clicks.
         TouchControlButtonView control = controlsVisible ? findControlUnder(x, y) : null;
         if (control != null) {
             controlPointerTargets.put(pointerId, control);
@@ -1381,17 +1165,26 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
             return true;
         }
 
-        // Menus/inventory are not grabbed, so they need real absolute mouse/touch events.
-        // Keep this single-pointer so button fingers never get mixed into the GUI stream.
-        if (passthroughTarget != null && passthroughPointerId == NO_POINTER_ID) {
+        // In-game look/attack: track one empty-space pointer by ID and send
+        // relative deltas. Do not switch this into absolute mouse mode just
+        // because the virtual cursor is visible.
+        if (grabbed) {
+            if (cameraPointerId == NO_POINTER_ID) {
+                startCameraPointer(event, pointerIndex, pointerId);
+                return true;
+            }
+            return hasActiveTouchRoute();
+        }
+
+        // Menus/inventory are not grabbed, so empty screen touches pass through
+        // to Minecraft as an absolute GUI click. If the passthrough target was
+        // not wired for any reason, return false so Android can continue hit
+        // testing lower siblings instead of the overlay eating the touch.
+        if (passthroughPointerId == NO_POINTER_ID && passthroughTarget != null) {
             passthroughPointerId = pointerId;
             passthroughDownTime = event.getEventTime();
-            boolean handled = dispatchSinglePointerToPassthrough(event, pointerIndex, MotionEvent.ACTION_DOWN);
-            if (!handled) {
-                passthroughPointerId = NO_POINTER_ID;
-                passthroughDownTime = 0L;
-            }
-            return handled;
+            dispatchSinglePointerToPassthrough(event, pointerIndex, MotionEvent.ACTION_DOWN);
+            return true;
         }
 
         return false;
@@ -1473,23 +1266,17 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
 
         float x = event.getX(pointerIndex);
         float y = event.getY(pointerIndex);
-        float totalDx = x - cameraDownX;
-        float totalDy = y - cameraDownY;
-
-        if (!cameraMovedPastSlop) {
-            if ((totalDx * totalDx) + (totalDy * totalDy) <= (cameraTouchSlop * cameraTouchSlop)) {
-                cameraLastX = x;
-                cameraLastY = y;
-                return;
-            }
-            cameraMovedPastSlop = true;
-            cancelCameraLongPressAttack(false);
-        }
-
         float dx = x - cameraLastX;
         float dy = y - cameraLastY;
         cameraLastX = x;
         cameraLastY = y;
+
+        float totalDx = x - cameraDownX;
+        float totalDy = y - cameraDownY;
+        if (!cameraMovedPastSlop && ((totalDx * totalDx) + (totalDy * totalDy)) > (cameraTouchSlop * cameraTouchSlop)) {
+            cameraMovedPastSlop = true;
+            cancelCameraLongPressAttack(false);
+        }
 
         if (dx == 0f && dy == 0f) return;
         sendRelativeCameraDelta(dx, dy);
@@ -1547,26 +1334,6 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
         }
     }
 
-    private void sendRelativeCameraDelta(float dx, float dy) {
-        try {
-            CallbackBridge.setInputReady(true);
-            CallbackBridge.mouseX += dx;
-            CallbackBridge.mouseY += dy;
-            CallbackBridge.sendCursorPos(CallbackBridge.mouseX, CallbackBridge.mouseY);
-        } catch (Throwable throwable) {
-            Logging.e(TAG, "Unable to send camera touch delta", throwable);
-        }
-    }
-
-    private void sendLeftMouse(boolean down) {
-        try {
-            CallbackBridge.setInputReady(true);
-            CallbackBridge.sendMouseButton(MOUSE_BUTTON_LEFT, down);
-        } catch (Throwable throwable) {
-            Logging.e(TAG, "Unable to send touch attack", throwable);
-        }
-    }
-
     private void startHotbarPointer(int pointerId, int slot) {
         hotbarPointerId = pointerId;
         hotbarLastSlot = slot;
@@ -1615,6 +1382,37 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
         }
     }
 
+    private void sendAbsoluteCursor(float x, float y) {
+        try {
+            CallbackBridge.setInputReady(true);
+            CallbackBridge.mouseX = clamp(x, 0f, Math.max(1, CallbackBridge.windowWidth));
+            CallbackBridge.mouseY = clamp(y, 0f, Math.max(1, CallbackBridge.windowHeight));
+            CallbackBridge.sendCursorPos(CallbackBridge.mouseX, CallbackBridge.mouseY);
+        } catch (Throwable throwable) {
+            Logging.e(TAG, "Unable to send virtual mouse cursor", throwable);
+        }
+    }
+
+    private void sendRelativeCameraDelta(float dx, float dy) {
+        try {
+            CallbackBridge.setInputReady(true);
+            CallbackBridge.mouseX += dx;
+            CallbackBridge.mouseY += dy;
+            CallbackBridge.sendCursorPos(CallbackBridge.mouseX, CallbackBridge.mouseY);
+        } catch (Throwable throwable) {
+            Logging.e(TAG, "Unable to send camera touch delta", throwable);
+        }
+    }
+
+    private void sendLeftMouse(boolean down) {
+        try {
+            CallbackBridge.setInputReady(true);
+            CallbackBridge.sendMouseButton(MOUSE_BUTTON_LEFT, down);
+        } catch (Throwable throwable) {
+            Logging.e(TAG, "Unable to send touch attack", throwable);
+        }
+    }
+
     private static boolean isMouseGrabbed() {
         try {
             return CallbackBridge.isGrabbing();
@@ -1629,21 +1427,6 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
             View child = getChildAt(i);
             if (child instanceof TouchControlButtonView) {
                 child.setVisibility(childVisible ? VISIBLE : INVISIBLE);
-            }
-        }
-    }
-
-    private void releaseRuntimeControlInputs() {
-        cancelCameraPointer(true);
-        finishHotbarPointer();
-        passthroughPointerId = NO_POINTER_ID;
-        passthroughDownTime = 0L;
-        controlPointerTargets.clear();
-
-        for (int i = 0; i < getChildCount(); i++) {
-            View child = getChildAt(i);
-            if (child instanceof TouchControlButtonView) {
-                ((TouchControlButtonView) child).releaseInputState();
             }
         }
     }
@@ -1699,8 +1482,6 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
             if (minecraftSurface != null) {
                 return minecraftSurface.handleTouchFromOverlay(single);
             }
-
-            // Fallback for editor/tests or if a different target is supplied.
             return passthroughTarget.dispatchTouchEvent(single);
         } catch (Throwable throwable) {
             Logging.e(TAG, "Unable to dispatch passthrough touch event", throwable);
@@ -1771,13 +1552,6 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
         return null;
     }
 
-    private boolean hasRuntimeTouchRouting() {
-        return cameraPointerId != NO_POINTER_ID
-                || hotbarPointerId != NO_POINTER_ID
-                || passthroughPointerId != NO_POINTER_ID
-                || controlPointerTargets.size() > 0;
-    }
-
     private void clearRuntimeTouchRouting() {
         cancelCameraPointer(true);
         finishHotbarPointer();
@@ -1785,6 +1559,15 @@ public final class TouchControlsOverlay extends FrameLayout implements TouchCont
         passthroughDownTime = 0L;
         controlPointerTargets.clear();
     }
+
+
+    private boolean hasActiveTouchRoute() {
+        return cameraPointerId != NO_POINTER_ID
+                || hotbarPointerId != NO_POINTER_ID
+                || passthroughPointerId != NO_POINTER_ID
+                || controlPointerTargets.size() > 0;
+    }
+
     @Override
     protected void onDetachedFromWindow() {
         clearRuntimeTouchRouting();

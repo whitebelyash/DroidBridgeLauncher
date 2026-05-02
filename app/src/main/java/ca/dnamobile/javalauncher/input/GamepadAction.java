@@ -143,6 +143,18 @@ public enum GamepadAction {
         return type == Type.MOUSE;
     }
 
+    public boolean isCursorAction() {
+        return type == Type.CURSOR;
+    }
+
+    public float getCursorDx() {
+        return type == Type.CURSOR ? code : 0f;
+    }
+
+    public float getCursorDy() {
+        return type == Type.CURSOR ? code2 : 0f;
+    }
+
     public void perform(boolean down) {
         perform(down, false);
     }

@@ -5,6 +5,11 @@
       <config />
     </shared>
     <layouts>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/drawable/ic_launcher_foreground.xml">
+        <config>
+          <theme>@style/Theme.JavaLauncher</theme>
+        </config>
+      </layout>
       <layout url="file://$PROJECT_DIR$/app/src/main/res/layout-land/activity_main.xml">
         <config>
           <state>Landscape</state>
@@ -48,13 +53,53 @@
           <theme>@style/Theme.JavaLauncher</theme>
         </config>
       </layout>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml">
+        <config>
+          <theme>@style/Theme.JavaLauncher</theme>
+        </config>
+      </layout>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml">
+        <config>
+          <theme>@style/Theme.JavaLauncher</theme>
+        </config>
+      </layout>
     </layouts>
   </component>
   <component name="AutoImportSettings">
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="886b1984-8f2f-4381-ba0f-2d372b74757a" name="Changes" comment="- Added personal accepted Microsoft login credentials&#10;- Updated Privacy Policy/licenses/Readme" />
+    <list default="true" id="886b1984-8f2f-4381-ba0f-2d372b74757a" name="Changes" comment="- Added personal accepted Microsoft login credentials&#10;- Updated Privacy Policy/licenses/Readme&#10;- Update checker added">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/app/build.gradle" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/LauncherSettingsActivity.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/LauncherSettingsActivity.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/ControlsActivity.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/ControlsActivity.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/ControlsEditorActivity.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/ControlsEditorActivity.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/ControlsPreferences.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/ControlsPreferences.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/ExpressionResolver.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/ExpressionResolver.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/TouchControlActions.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/TouchControlActions.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/TouchControlButtonView.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/TouchControlButtonView.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/TouchControlData.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/TouchControlData.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/TouchControlsLayoutData.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/TouchControlsLayoutData.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/TouchControlsOverlay.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/TouchControlsOverlay.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/TouchControlsStore.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/TouchControlsStore.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/TouchInputBinding.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/TouchInputBinding.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/TouchKeyboardHelper.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/controls/TouchKeyboardHelper.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/feature/unpack/UnpackComponentsTask.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/feature/unpack/UnpackComponentsTask.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/feature/unpack/UnpackJreTask.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/feature/unpack/UnpackJreTask.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/input/GameCursorOverlay.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/input/GameCursorOverlay.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/input/GamepadAction.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/input/GamepadAction.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/input/GamepadInputController.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/input/GamepadInputController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/input/GamepadMappingDialog.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/input/GamepadMappingDialog.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/input/GamepadMappingStore.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/input/GamepadMappingStore.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/renderer/MobileGluesConfigHelper.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/renderer/MobileGluesConfigHelper.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/settings/LauncherPreferences.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/settings/LauncherPreferences.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/storage/StorageLocationStore.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/storage/StorageLocationStore.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/utils/path/LibPath.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/ca/dnamobile/javalauncher/utils/path/LibPath.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/net/kdt/pojavlaunch/MinecraftGLSurface.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/net/kdt/pojavlaunch/MinecraftGLSurface.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/net/kdt/pojavlaunch/multirt/MultiRTUtils.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/net/kdt/pojavlaunch/multirt/MultiRTUtils.java" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -69,7 +114,7 @@
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[]" />
+  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[DeviceId(pluginId=PhysicalDevice, isTemplate=false, identifier=serial=40355fe2)]" />
   <component name="ExternalProjectsData">
     <projectState path="$PROJECT_DIR$">
       <ProjectState />
@@ -579,7 +624,31 @@
       <option name="project" value="LOCAL" />
       <updated>1777642878879</updated>
     </task>
-    <option name="localTasksCounter" value="45" />
+    <task id="LOCAL-00045" summary="- Added personal accepted Microsoft login credentials&#10;- Updated Privacy Policy/licenses/Readme">
+      <option name="closed" value="true" />
+      <created>1777665937623</created>
+      <option name="number" value="00045" />
+      <option name="presentableId" value="LOCAL-00045" />
+      <option name="project" value="LOCAL" />
+      <updated>1777665937623</updated>
+    </task>
+    <task id="LOCAL-00046" summary="- Added personal accepted Microsoft login credentials&#10;- Updated Privacy Policy/licenses/Readme">
+      <option name="closed" value="true" />
+      <created>1777666527528</created>
+      <option name="number" value="00046" />
+      <option name="presentableId" value="LOCAL-00046" />
+      <option name="project" value="LOCAL" />
+      <updated>1777666527528</updated>
+    </task>
+    <task id="LOCAL-00047" summary="- Added personal accepted Microsoft login credentials&#10;- Updated Privacy Policy/licenses/Readme&#10;- Update checker added">
+      <option name="closed" value="true" />
+      <created>1777668101304</created>
+      <option name="number" value="00047" />
+      <option name="presentableId" value="LOCAL-00047" />
+      <option name="project" value="LOCAL" />
+      <updated>1777668101304</updated>
+    </task>
+    <option name="localTasksCounter" value="48" />
     <servers />
   </component>
   <component name="UnknownFeatures">
@@ -590,7 +659,6 @@
       <path value="$USER_HOME$" />
       <path value="$PROJECT_DIR$" />
     </ignored-roots>
-    <MESSAGE value="Fabric Installation" />
     <MESSAGE value="Fabric Forge" />
     <MESSAGE value="- Added loader version dropdown in dialog" />
     <MESSAGE value="- Delete instances added&#10;- Changed how installs are handled, inherited instance don't install next to each other anymore unless toggled on" />
@@ -615,19 +683,20 @@
     <MESSAGE value="- Added Microsoft Skin Changer&#10;- Added more auth lockdown&#10;- Fixed Settings Layout Issues&#10;- Added more auth blockers&#10;- Added block browse content for Vanilla&#10;-Added Version/Loader updater&#10;-Added Modpack downloader&#10;-Added Modpack Export/Import Mod/Curse" />
     <MESSAGE value="- Added personal accepted Microsoft login credentials" />
     <MESSAGE value="- Added personal accepted Microsoft login credentials&#10;- Updated Privacy Policy/licenses/Readme" />
-    <option name="LAST_COMMIT_MESSAGE" value="- Added personal accepted Microsoft login credentials&#10;- Updated Privacy Policy/licenses/Readme" />
+    <MESSAGE value="- Added personal accepted Microsoft login credentials&#10;- Updated Privacy Policy/licenses/Readme&#10;- Update checker added" />
+    <option name="LAST_COMMIT_MESSAGE" value="- Added personal accepted Microsoft login credentials&#10;- Updated Privacy Policy/licenses/Readme&#10;- Update checker added" />
   </component>
   <component name="play_dynamic_filters_status">
     <option name="appIdToCheckInfo">
       <map>
         <entry key="ca.dnamobile.javalauncher">
           <value>
-            <CheckInfo lastCheckTimestamp="1777577704045" />
+            <CheckInfo lastCheckTimestamp="1777666039038" />
           </value>
         </entry>
         <entry key="ca.dnamobile.javalauncher.test">
           <value>
-            <CheckInfo lastCheckTimestamp="1777577704028" />
+            <CheckInfo lastCheckTimestamp="1777666039039" />
           </value>
         </entry>
       </map>

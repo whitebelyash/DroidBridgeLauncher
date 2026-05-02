@@ -26,17 +26,26 @@ import ca.dnamobile.javalauncher.utils.path.PathManager;
 /**
  * Stores launcher storage roots selected from the Storage Locations dialog.
  *
- * Java/Minecraft still need normal java.io.File paths, so selected tree URIs are
- * resolved to filesystem-backed launcher homes when possible. If Android only
- * gives us a content URI that cannot be mapped to a writable File path, the row
- * stays visible in the dialog but PathManager falls back to default storage.
+ * Play-compliant scoped-storage rule:
+ * - Default storage uses Android's app-specific external files directory.
+ * - User-picked storage saves the SAF tree URI and shows the user's picked path.
+ * - Minecraft/Forge/NeoForge still require normal java.io.File paths, so custom
+ *   SAF locations use an app-private mirror for runtime/install work, then the
+ *   mirror is synced to the picked SAF tree with ContentResolver/DocumentsContract.
+ * - Never rewrite a custom picked folder to Android/data as if it were the user's
+ *   chosen folder.
  */
 public final class StorageLocationStore {
     public static final String DEFAULT_LOCATION_ID = "default";
 
+    private static final String TAG = "StorageLocationStore";
     private static final String PREFS_NAME = "storage_locations";
     private static final String KEY_LOCATIONS = "locations_json";
     private static final String KEY_SELECTED_LOCATION_ID = "selected_location_id";
+
+    private static final String JSON_ID = "id";
+    private static final String JSON_NAME = "name";
+    private static final String JSON_URI = "uri";
 
     private StorageLocationStore() {
     }
@@ -59,42 +68,43 @@ public final class StorageLocationStore {
                 true
         ));
 
-        JSONArray array = readLocationArray(appContext);
+        JSONArray array = readAndCleanLocationArray(appContext);
         for (int i = 0; i < array.length(); i++) {
             try {
                 JSONObject object = array.getJSONObject(i);
-                String id = object.optString("id", "");
-                String name = object.optString("name", "");
-                String uri = object.optString("uri", "");
-                if (id.isEmpty() || uri.isEmpty()) continue;
+                String id = object.optString(JSON_ID, "");
+                String name = object.optString(JSON_NAME, "");
+                String uri = object.optString(JSON_URI, "");
+                if (id.trim().isEmpty() || uri.trim().isEmpty()) continue;
 
                 Uri treeUri = Uri.parse(uri);
-                File launcherHome = resolveTreeUriToLauncherHome(appContext, treeUri);
-                File minecraftHome = launcherHome != null ? new File(launcherHome, ".minecraft") : null;
-                boolean usable = launcherHome != null && isUsableLauncherHome(launcherHome);
+                File displayLauncherHome = resolveTreeUriToLauncherHome(appContext, treeUri);
+                File displayMinecraftHome = displayLauncherHome != null ? new File(displayLauncherHome, ".minecraft") : null;
+
+                // This is the real File path used by Minecraft/Forge/NeoForge. It is
+                // app-private and Play-safe. The user's chosen folder is synced by SAF.
+                File mirrorLauncherHome = getScopedMirrorLauncherHome(appContext, id);
+                File mirrorMinecraftHome = new File(mirrorLauncherHome, ".minecraft");
 
                 String summary;
-                if (usable && minecraftHome != null) {
-                    summary = minecraftHome.getAbsolutePath();
-                } else if (launcherHome != null && minecraftHome != null) {
-                    summary = minecraftHome.getAbsolutePath()
-                            + "\nThis folder is not writable through normal File access yet.";
+                if (displayMinecraftHome != null) {
+                    summary = displayMinecraftHome.getAbsolutePath();
                 } else {
-                    summary = uri + "\nThis provider cannot be used for Minecraft files yet.";
+                    summary = uri;
                 }
 
                 locations.add(new StorageLocation(
                         id,
-                        name.isEmpty() ? appContext.getString(R.string.storage_scoped_name) : name,
+                        name.trim().isEmpty() ? buildDisplayName(appContext, treeUri, displayLauncherHome) : name,
                         summary,
                         uri,
-                        launcherHome != null ? launcherHome.getAbsolutePath() : null,
-                        minecraftHome != null ? minecraftHome.getAbsolutePath() : null,
+                        mirrorLauncherHome.getAbsolutePath(),
+                        mirrorMinecraftHome.getAbsolutePath(),
                         false,
-                        usable
+                        true
                 ));
             } catch (Throwable throwable) {
-                Logging.i("StorageLocationStore", "Skipping broken storage location: " + throwable.getMessage());
+                Logging.i(TAG, "Skipping broken storage location: " + throwable.getMessage());
             }
         }
 
@@ -106,7 +116,8 @@ public final class StorageLocationStore {
         Context appContext = context.getApplicationContext();
         String uriString = treeUri.toString();
         String id = buildLocationId(uriString);
-        String displayName = buildDisplayName(appContext, treeUri);
+        File displayHome = resolveTreeUriToLauncherHome(appContext, treeUri);
+        String displayName = buildDisplayName(appContext, treeUri, displayHome);
 
         JSONArray array = readLocationArray(appContext);
         JSONArray rewritten = new JSONArray();
@@ -115,7 +126,7 @@ public final class StorageLocationStore {
         for (int i = 0; i < array.length(); i++) {
             try {
                 JSONObject object = array.getJSONObject(i);
-                if (id.equals(object.optString("id", ""))) {
+                if (id.equals(object.optString(JSON_ID, ""))) {
                     rewritten.put(toJson(id, displayName, uriString));
                     replaced = true;
                 } else {
@@ -125,31 +136,29 @@ public final class StorageLocationStore {
             }
         }
 
-        if (!replaced) {
-            rewritten.put(toJson(id, displayName, uriString));
-        }
-
+        if (!replaced) rewritten.put(toJson(id, displayName, uriString));
         getPrefs(appContext).edit().putString(KEY_LOCATIONS, rewritten.toString()).apply();
 
         for (StorageLocation location : getLocations(appContext)) {
             if (id.equals(location.getId())) return location;
         }
-        return new StorageLocation(id, displayName, uriString, uriString, false);
+
+        File mirrorHome = getScopedMirrorLauncherHome(appContext, id);
+        return new StorageLocation(
+                id,
+                displayName,
+                displayHome != null ? new File(displayHome, ".minecraft").getAbsolutePath() : uriString,
+                uriString,
+                mirrorHome.getAbsolutePath(),
+                new File(mirrorHome, ".minecraft").getAbsolutePath(),
+                false,
+                true
+        );
     }
 
-
-    /**
-     * Removes a user-added storage location from the launcher list.
-     *
-     * This only forgets the saved SAF/tree URI entry and releases the persisted
-     * permission when Android allows it. It never deletes files from storage.
-     * The default location is protected and cannot be removed.
-     */
     public static boolean removeLocation(@NonNull Context context, @NonNull String id) {
         Context appContext = context.getApplicationContext();
-        if (DEFAULT_LOCATION_ID.equals(id)) {
-            return false;
-        }
+        if (DEFAULT_LOCATION_ID.equals(id)) return false;
 
         JSONArray array = readLocationArray(appContext);
         JSONArray rewritten = new JSONArray();
@@ -159,9 +168,9 @@ public final class StorageLocationStore {
         for (int i = 0; i < array.length(); i++) {
             try {
                 JSONObject object = array.getJSONObject(i);
-                if (id.equals(object.optString("id", ""))) {
+                if (id.equals(object.optString(JSON_ID, ""))) {
                     removed = true;
-                    removedUriString = object.optString("uri", "");
+                    removedUriString = object.optString(JSON_URI, "");
                 } else {
                     rewritten.put(object);
                 }
@@ -169,19 +178,14 @@ public final class StorageLocationStore {
             }
         }
 
-        if (!removed) {
-            return false;
-        }
+        if (!removed) return false;
 
-        SharedPreferences.Editor editor = getPrefs(appContext)
-                .edit()
-                .putString(KEY_LOCATIONS, rewritten.toString());
-
+        SharedPreferences.Editor editor = getPrefs(appContext).edit().putString(KEY_LOCATIONS, rewritten.toString());
         if (id.equals(getSelectedLocationId(appContext))) {
             editor.putString(KEY_SELECTED_LOCATION_ID, DEFAULT_LOCATION_ID);
         }
-
         editor.apply();
+
         releasePersistablePermissionIfPossible(appContext, removedUriString);
         return true;
     }
@@ -193,20 +197,16 @@ public final class StorageLocationStore {
     @NonNull
     public static String getSelectedLocationId(@NonNull Context context) {
         String id = getPrefs(context).getString(KEY_SELECTED_LOCATION_ID, DEFAULT_LOCATION_ID);
-        return id == null || id.isEmpty() ? DEFAULT_LOCATION_ID : id;
+        return id == null || id.trim().isEmpty() ? DEFAULT_LOCATION_ID : id;
     }
 
     @NonNull
     public static StorageLocation getSelectedLocation(@NonNull Context context) {
         String selectedId = getSelectedLocationId(context);
         List<StorageLocation> locations = getLocations(context);
-
         for (StorageLocation location : locations) {
-            if (selectedId.equals(location.getId())) {
-                return location;
-            }
+            if (selectedId.equals(location.getId())) return location;
         }
-
         setSelectedLocationId(context, DEFAULT_LOCATION_ID);
         return locations.get(0);
     }
@@ -217,58 +217,46 @@ public final class StorageLocationStore {
         return location.isDefaultLocation() ? null : location.getUriString();
     }
 
+    @Nullable
+    public static Uri getSelectedTreeUri(@NonNull Context context) {
+        String value = getSelectedTreeUriString(context);
+        return value == null || value.trim().isEmpty() ? null : Uri.parse(value.trim());
+    }
+
+    public static boolean isSelectedScopedStorage(@NonNull Context context) {
+        return !getSelectedLocation(context).isDefaultLocation() && getSelectedTreeUri(context) != null;
+    }
+
+    /**
+     * Returns the actual local File root used by installers and the JVM. For SAF
+     * locations this is an app-private mirror, not Android/data pretending to be
+     * the user's selected folder.
+     */
     @NonNull
     public static File getSelectedLauncherHome(@NonNull Context context) {
         Context appContext = context.getApplicationContext();
         StorageLocation selected = getSelectedLocation(appContext);
-
-        if (!selected.isDefaultLocation()
-                && selected.isUsableForFileLaunch()
-                && selected.getLauncherHomePath() != null
-                && !selected.getLauncherHomePath().trim().isEmpty()) {
-            return new File(selected.getLauncherHomePath());
-        }
-
-        if (!selected.isDefaultLocation()) {
-            Logging.i("StorageLocationStore", "Selected storage is not usable as a File path yet; falling back to default: "
-                    + selected.getSummary());
-        }
+        String path = selected.getLauncherHomePath();
+        if (path != null && !path.trim().isEmpty()) return new File(path.trim());
         return PathManager.getDefaultLauncherHome(appContext);
     }
-
 
     @NonNull
     public static File getSelectedMinecraftHome(@NonNull Context context) {
         return new File(getSelectedLauncherHome(context), ".minecraft");
     }
 
-    /**
-     * The dialog can remember multiple folders, but the main instance list should
-     * show only the currently selected storage location. Otherwise choosing a
-     * scoped/SD/USB location still appears to show files from default storage.
-     */
     @NonNull
     public static List<File> getVisibleLauncherHomes(@NonNull Context context) {
         ArrayList<File> homes = new ArrayList<>();
-        StorageLocation selected = getSelectedLocation(context);
-
-        if (!selected.isDefaultLocation()
-                && selected.getLauncherHomePath() != null
-                && !selected.getLauncherHomePath().trim().isEmpty()) {
-            homes.add(new File(selected.getLauncherHomePath().trim()));
-            return homes;
-        }
-
-        homes.add(PathManager.getDefaultLauncherHome(context.getApplicationContext()));
+        homes.add(getSelectedLauncherHome(context));
         return homes;
     }
 
     @NonNull
     public static List<File> getVisibleMinecraftHomes(@NonNull Context context) {
         ArrayList<File> homes = new ArrayList<>();
-        for (File launcherHome : getVisibleLauncherHomes(context)) {
-            homes.add(new File(launcherHome, ".minecraft"));
-        }
+        for (File launcherHome : getVisibleLauncherHomes(context)) homes.add(new File(launcherHome, ".minecraft"));
         return homes;
     }
 
@@ -276,14 +264,10 @@ public final class StorageLocationStore {
     public static List<File> getAllLauncherHomes(@NonNull Context context) {
         ArrayList<File> homes = new ArrayList<>();
         Set<String> seen = new HashSet<>();
-
         for (StorageLocation location : getLocations(context)) {
             String path = location.getLauncherHomePath();
-            if (path == null || path.trim().isEmpty()) continue;
-            File home = new File(path.trim());
-            addHomeIfMissing(homes, seen, home);
+            if (path != null && !path.trim().isEmpty()) addHomeIfMissing(homes, seen, new File(path.trim()));
         }
-
         addHomeIfMissing(homes, seen, getSelectedLauncherHome(context));
         addHomeIfMissing(homes, seen, PathManager.getDefaultLauncherHome(context));
         return homes;
@@ -295,10 +279,84 @@ public final class StorageLocationStore {
         Set<String> seen = new HashSet<>();
         for (File launcherHome : getAllLauncherHomes(context)) {
             File minecraftHome = new File(launcherHome, ".minecraft");
-            String path = minecraftHome.getAbsolutePath();
-            if (seen.add(path)) homes.add(minecraftHome);
+            if (seen.add(minecraftHome.getAbsolutePath())) homes.add(minecraftHome);
         }
         return homes;
+    }
+
+    @NonNull
+    public static File getScopedMirrorLauncherHome(@NonNull Context context, @NonNull String id) {
+        String safeId = id.replaceAll("[^A-Za-z0-9._-]", "_");
+        return new File(context.getApplicationContext().getFilesDir(), "scoped_storage_mirrors/" + safeId);
+    }
+
+    public static void syncSelectedMirrorToTree(
+            @NonNull Context context,
+            @Nullable SafMinecraftMirror.Progress progress
+    ) throws Exception {
+        Context appContext = context.getApplicationContext();
+        StorageLocation selected = getSelectedLocation(appContext);
+        if (selected.isDefaultLocation()) return;
+        Uri treeUri = getSelectedTreeUri(appContext);
+        if (treeUri == null) return;
+        File localLauncherHome = getSelectedLauncherHome(appContext);
+        SafMinecraftMirror.copyLocalLauncherHomeToTree(appContext, localLauncherHome, treeUri, progress);
+    }
+
+    public static void syncSelectedTreeToMirror(
+            @NonNull Context context,
+            @Nullable SafMinecraftMirror.Progress progress
+    ) throws Exception {
+        Context appContext = context.getApplicationContext();
+        StorageLocation selected = getSelectedLocation(appContext);
+        if (selected.isDefaultLocation()) return;
+        Uri treeUri = getSelectedTreeUri(appContext);
+        if (treeUri == null) return;
+        File localLauncherHome = getSelectedLauncherHome(appContext);
+        SafMinecraftMirror.copyTreeToLocalLauncherHome(appContext, treeUri, localLauncherHome, progress);
+    }
+
+
+    /**
+     * If a local mirror path belongs to a custom SAF storage location, delete the
+     * matching path from the picked scoped-storage tree too. This is required
+     * because deleting the local mirror alone does not remove the already-synced
+     * files from the user's selected folder.
+     */
+    public static boolean deleteFromScopedStorageIfNeeded(
+            @NonNull Context context,
+            @NonNull File localPath
+    ) throws Exception {
+        Context appContext = context.getApplicationContext();
+        File target = localPath.getCanonicalFile();
+
+        for (StorageLocation location : getLocations(appContext)) {
+            if (location.isDefaultLocation()) continue;
+
+            String uriString = location.getUriString();
+            String launcherHomePath = location.getLauncherHomePath();
+            if (uriString == null || uriString.trim().isEmpty()) continue;
+            if (launcherHomePath == null || launcherHomePath.trim().isEmpty()) continue;
+
+            File launcherHome = new File(launcherHomePath.trim()).getCanonicalFile();
+            if (!target.equals(launcherHome) && !isChildOf(launcherHome, target)) {
+                continue;
+            }
+
+            String relative = relativePath(launcherHome, target);
+            if (relative.isEmpty()) {
+                Logging.i(TAG, "Refusing to delete scoped storage root for local path: " + target.getAbsolutePath());
+                return false;
+            }
+
+            return SafMinecraftMirror.deleteRelativePathFromTree(
+                    appContext,
+                    Uri.parse(uriString.trim()),
+                    relative
+            );
+        }
+
+        return false;
     }
 
     @Nullable
@@ -317,9 +375,7 @@ public final class StorageLocationStore {
             }
 
             String documentId = DocumentsContract.getTreeDocumentId(uri);
-            if (documentId == null || documentId.trim().isEmpty()) {
-                return null;
-            }
+            if (documentId == null || documentId.trim().isEmpty()) return null;
 
             String volume = documentId;
             String relative = "";
@@ -330,17 +386,13 @@ public final class StorageLocationStore {
             }
 
             File base;
-            if ("primary".equalsIgnoreCase(volume)) {
-                base = Environment.getExternalStorageDirectory();
-            } else if ("home".equalsIgnoreCase(volume)) {
-                base = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
-            } else {
-                base = new File("/storage", volume);
-            }
+            if ("primary".equalsIgnoreCase(volume)) base = Environment.getExternalStorageDirectory();
+            else if ("home".equalsIgnoreCase(volume)) base = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
+            else base = new File("/storage", volume);
 
             return relative.trim().isEmpty() ? base : new File(base, relative);
         } catch (Throwable throwable) {
-            Logging.i("StorageLocationStore", "Unable to resolve tree URI " + uri + ": " + throwable.getMessage());
+            Logging.i(TAG, "Unable to resolve tree URI " + uri + ": " + throwable.getMessage());
             return null;
         }
     }
@@ -354,43 +406,51 @@ public final class StorageLocationStore {
         return selectedDirectory;
     }
 
-    private static boolean isUsableLauncherHome(@NonNull File launcherHome) {
-        try {
-            if (!launcherHome.exists() && !launcherHome.mkdirs()) return false;
-            if (!launcherHome.isDirectory()) return false;
+    @NonNull
+    private static JSONArray readAndCleanLocationArray(@NonNull Context context) {
+        JSONArray raw = readLocationArray(context);
+        JSONArray cleaned = new JSONArray();
+        Set<String> seenIds = new HashSet<>();
+        boolean changed = false;
+        String selectedId = getSelectedLocationId(context);
+        boolean selectedRemoved = false;
 
-            File minecraftHome = new File(launcherHome, ".minecraft");
-            if (!minecraftHome.exists() && !minecraftHome.mkdirs()) return false;
-            if (!minecraftHome.isDirectory()) return false;
-
-            File probe = new File(minecraftHome, ".javalauncher_storage_probe");
-            try (java.io.FileOutputStream output = new java.io.FileOutputStream(probe, false)) {
-                output.write('1');
+        for (int i = 0; i < raw.length(); i++) {
+            try {
+                JSONObject object = raw.getJSONObject(i);
+                String id = object.optString(JSON_ID, "");
+                String name = object.optString(JSON_NAME, "");
+                String uri = object.optString(JSON_URI, "");
+                if (id.trim().isEmpty() || uri.trim().isEmpty() || !seenIds.add(id)) {
+                    changed = true;
+                    if (id.equals(selectedId)) selectedRemoved = true;
+                    continue;
+                }
+                cleaned.put(toJson(id, name, uri));
+            } catch (Throwable throwable) {
+                changed = true;
             }
-            //noinspection ResultOfMethodCallIgnored
-            probe.delete();
-            return true;
-        } catch (Throwable ignored) {
-            return false;
         }
+
+        if (changed) {
+            SharedPreferences.Editor editor = getPrefs(context).edit().putString(KEY_LOCATIONS, cleaned.toString());
+            if (selectedRemoved) editor.putString(KEY_SELECTED_LOCATION_ID, DEFAULT_LOCATION_ID);
+            editor.apply();
+        }
+
+        return cleaned;
     }
 
-
     private static void releasePersistablePermissionIfPossible(@NonNull Context context, @Nullable String uriString) {
-        if (uriString == null || uriString.trim().isEmpty()) {
-            return;
-        }
-
+        if (uriString == null || uriString.trim().isEmpty()) return;
         try {
             Uri uri = Uri.parse(uriString);
-            context.getApplicationContext()
-                    .getContentResolver()
-                    .releasePersistableUriPermission(
-                            uri,
-                            Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                    );
+            context.getApplicationContext().getContentResolver().releasePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            );
         } catch (Throwable throwable) {
-            Logging.i("StorageLocationStore", "Unable to release storage URI permission: " + throwable.getMessage());
+            Logging.i(TAG, "Unable to release storage URI permission: " + throwable.getMessage());
         }
     }
 
@@ -403,7 +463,7 @@ public final class StorageLocationStore {
     private static JSONArray readLocationArray(@NonNull Context context) {
         String raw = getPrefs(context).getString(KEY_LOCATIONS, "[]");
         try {
-            return new JSONArray(raw == null || raw.isEmpty() ? "[]" : raw);
+            return new JSONArray(raw == null || raw.trim().isEmpty() ? "[]" : raw);
         } catch (Throwable ignored) {
             return new JSONArray();
         }
@@ -413,9 +473,9 @@ public final class StorageLocationStore {
     private static JSONObject toJson(@NonNull String id, @NonNull String name, @NonNull String uri) {
         JSONObject object = new JSONObject();
         try {
-            object.put("id", id);
-            object.put("name", name);
-            object.put("uri", uri);
+            object.put(JSON_ID, id);
+            object.put(JSON_NAME, name);
+            object.put(JSON_URI, uri);
         } catch (Throwable ignored) {
         }
         return object;
@@ -427,27 +487,41 @@ public final class StorageLocationStore {
     }
 
     @NonNull
-    private static String buildDisplayName(@NonNull Context context, @NonNull Uri uri) {
-        File resolved = resolveTreeUriToLauncherHome(context, uri);
-        if (resolved != null) {
-            String name = resolved.getName();
+    private static String buildDisplayName(@NonNull Context context, @NonNull Uri uri, @Nullable File resolvedHome) {
+        if (resolvedHome != null) {
+            String name = resolvedHome.getName();
             if (name != null && !name.trim().isEmpty()) return name;
         }
 
         String segment = uri.getLastPathSegment();
-        if (segment == null || segment.trim().isEmpty()) {
-            return context.getString(R.string.storage_scoped_name);
-        }
+        if (segment == null || segment.trim().isEmpty()) return context.getString(R.string.storage_scoped_name);
 
         int split = segment.indexOf(':');
         if (split >= 0 && split + 1 < segment.length()) {
             String path = segment.substring(split + 1);
             if (!path.trim().isEmpty()) {
-                return path;
+                int slash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+                return slash >= 0 && slash + 1 < path.length() ? path.substring(slash + 1) : path;
             }
         }
-
         return segment.replace(':', '/');
+    }
+
+
+    private static boolean isChildOf(@NonNull File parent, @NonNull File child) throws Exception {
+        String parentPath = parent.getCanonicalPath();
+        String childPath = child.getCanonicalPath();
+        return childPath.startsWith(parentPath + File.separator);
+    }
+
+    @NonNull
+    private static String relativePath(@NonNull File root, @NonNull File file) throws Exception {
+        String rootPath = root.getCanonicalPath();
+        String filePath = file.getCanonicalPath();
+        if (!filePath.startsWith(rootPath)) return "";
+        String out = filePath.substring(rootPath.length());
+        while (out.startsWith(File.separator)) out = out.substring(1);
+        return out.replace(File.separatorChar, '/');
     }
 
     private static void addHomeIfMissing(@NonNull List<File> homes, @NonNull Set<String> seen, @Nullable File home) {

@@ -36,6 +36,13 @@ public class MinecraftGLSurface extends FrameLayout implements GrabListener {
     private SurfaceView nativeSurfaceView;
     private Surface textureSurface;
 
+    private int viewWidth = 1;
+    private int viewHeight = 1;
+    private int renderWidth = 1;
+    private int renderHeight = 1;
+    private float inputScaleX = 1.0f;
+    private float inputScaleY = 1.0f;
+
     private SurfaceReadyListener surfaceReadyListener;
     private OnRenderingStartedListener renderingStartedListener;
     private boolean renderingStarted = false;
@@ -99,30 +106,26 @@ public class MinecraftGLSurface extends FrameLayout implements GrabListener {
 
             @Override
             public void onSurfaceTextureAvailable(@NonNull SurfaceTexture surface, int width, int height) {
-                int safeWidth = safeWidth(width);
-                int safeHeight = safeHeight(height);
-
-                updateSizeFields(safeWidth, safeHeight);
-                surface.setDefaultBufferSize(safeWidth, safeHeight);
+                RenderSize size = updateScaledSizeFromView(width, height);
+                surface.setDefaultBufferSize(size.renderWidth, size.renderHeight);
 
                 releaseTextureSurface();
                 textureSurface = new Surface(surface);
 
                 if (called) {
-                    attachBridgeWindow(textureSurface, safeWidth, safeHeight);
+                    attachBridgeWindow(textureSurface, size);
                     return;
                 }
 
                 called = true;
-                realStart(textureSurface, safeWidth, safeHeight, false);
+                realStart(textureSurface, size, false);
             }
 
             @Override
             public void onSurfaceTextureSizeChanged(@NonNull SurfaceTexture surface, int width, int height) {
-                int safeWidth = safeWidth(width);
-                int safeHeight = safeHeight(height);
-                surface.setDefaultBufferSize(safeWidth, safeHeight);
-                refreshSize(safeWidth, safeHeight);
+                RenderSize size = updateScaledSizeFromView(width, height);
+                surface.setDefaultBufferSize(size.renderWidth, size.renderHeight);
+                refreshSize(size);
             }
 
             @Override
@@ -155,22 +158,24 @@ public class MinecraftGLSurface extends FrameLayout implements GrabListener {
 
             @Override
             public void surfaceCreated(@NonNull SurfaceHolder holder) {
-                int width = safeWidth(nativeSurfaceView.getWidth());
-                int height = safeHeight(nativeSurfaceView.getHeight());
+                RenderSize size = updateScaledSizeFromView(nativeSurfaceView.getWidth(), nativeSurfaceView.getHeight());
+                applyNativeSurfaceBufferSize(holder, size);
 
                 if (called) {
-                    attachBridgeWindow(holder.getSurface(), width, height);
+                    attachBridgeWindow(holder.getSurface(), size);
                     notifyRenderingStartedSoon();
                     return;
                 }
 
                 called = true;
-                realStart(holder.getSurface(), width, height, true);
+                realStart(holder.getSurface(), size, true);
             }
 
             @Override
             public void surfaceChanged(@NonNull SurfaceHolder holder, int format, int width, int height) {
-                refreshSize(safeWidth(width), safeHeight(height));
+                RenderSize size = updateScaledSizeFromView(nativeSurfaceView.getWidth(), nativeSurfaceView.getHeight());
+                applyNativeSurfaceBufferSize(holder, size);
+                refreshSize(size);
                 if (holder.getSurface().isValid()) {
                     JREUtils.setupBridgeWindow(holder.getSurface());
                     bridgeWindowAttached = true;
@@ -202,23 +207,28 @@ public class MinecraftGLSurface extends FrameLayout implements GrabListener {
         if (width <= 1 && renderView != null) width = safeWidth(renderView.getWidth());
         if (height <= 1 && renderView != null) height = safeHeight(renderView.getHeight());
 
-        refreshSize(width, height);
+        RenderSize size = updateScaledSizeFromView(width, height);
+        refreshSize(size);
     }
 
-    private void refreshSize(int width, int height) {
-        updateSizeFields(width, height);
+    private void refreshSize(@NonNull RenderSize size) {
+        updateSizeFields(size);
 
         if (textureView != null && textureView.getSurfaceTexture() != null) {
-            textureView.getSurfaceTexture().setDefaultBufferSize(width, height);
+            textureView.getSurfaceTexture().setDefaultBufferSize(size.renderWidth, size.renderHeight);
+        }
+
+        if (nativeSurfaceView != null) {
+            applyNativeSurfaceBufferSize(nativeSurfaceView.getHolder(), size);
         }
 
         if (bridgeWindowAttached) {
-            CallbackBridge.sendUpdateWindowSize(width, height);
+            CallbackBridge.sendUpdateWindowSize(size.renderWidth, size.renderHeight);
         }
     }
 
-    private void realStart(@NonNull Surface surface, int width, int height, boolean assumeRenderingStarted) {
-        attachBridgeWindow(surface, width, height);
+    private void realStart(@NonNull Surface surface, @NonNull RenderSize size, boolean assumeRenderingStarted) {
+        attachBridgeWindow(surface, size);
 
         if (assumeRenderingStarted) {
             notifyRenderingStartedSoon();
@@ -229,20 +239,54 @@ public class MinecraftGLSurface extends FrameLayout implements GrabListener {
         }
     }
 
-    private void attachBridgeWindow(@NonNull Surface surface, int width, int height) {
+    private void attachBridgeWindow(@NonNull Surface surface, @NonNull RenderSize size) {
         JREUtils.setupBridgeWindow(surface);
         bridgeWindowAttached = true;
 
-        updateSizeFields(width, height);
-        CallbackBridge.mouseX = width / 2f;
-        CallbackBridge.mouseY = height / 2f;
-        CallbackBridge.sendUpdateWindowSize(width, height);
+        updateSizeFields(size);
+        CallbackBridge.mouseX = size.renderWidth / 2f;
+        CallbackBridge.mouseY = size.renderHeight / 2f;
+        CallbackBridge.sendUpdateWindowSize(size.renderWidth, size.renderHeight);
         CallbackBridge.sendCursorPos(CallbackBridge.mouseX, CallbackBridge.mouseY);
     }
 
-    private void updateSizeFields(int width, int height) {
-        CallbackBridge.windowWidth = Math.max(1, width);
-        CallbackBridge.windowHeight = Math.max(1, height);
+    @NonNull
+    private RenderSize updateScaledSizeFromView(int width, int height) {
+        int safeViewWidth = safeWidth(width);
+        int safeViewHeight = safeHeight(height);
+        int percent = LauncherPreferences.getGameResolutionScalePercent(getContext());
+        int safeRenderWidth = Math.max(1, Math.round(safeViewWidth * (percent / 100.0f)));
+        int safeRenderHeight = Math.max(1, Math.round(safeViewHeight * (percent / 100.0f)));
+
+        viewWidth = safeViewWidth;
+        viewHeight = safeViewHeight;
+        renderWidth = safeRenderWidth;
+        renderHeight = safeRenderHeight;
+        inputScaleX = renderWidth / (float) Math.max(1, viewWidth);
+        inputScaleY = renderHeight / (float) Math.max(1, viewHeight);
+
+        RenderSize size = new RenderSize(viewWidth, viewHeight, renderWidth, renderHeight);
+        updateSizeFields(size);
+        return size;
+    }
+
+    private void applyNativeSurfaceBufferSize(@NonNull SurfaceHolder holder, @NonNull RenderSize size) {
+        try {
+            if (size.renderWidth == size.viewWidth && size.renderHeight == size.viewHeight) {
+                holder.setSizeFromLayout();
+            } else {
+                holder.setFixedSize(size.renderWidth, size.renderHeight);
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private void updateSizeFields(@NonNull RenderSize size) {
+        CallbackBridge.windowWidth = Math.max(1, size.renderWidth);
+        CallbackBridge.windowHeight = Math.max(1, size.renderHeight);
+
+        // Keep physical* in the same coordinate space currently used by the rest of this bridge.
+        // Touch/mouse input is explicitly scaled from Android view coordinates into this render space below.
         CallbackBridge.physicalWidth = CallbackBridge.windowWidth;
         CallbackBridge.physicalHeight = CallbackBridge.windowHeight;
     }
@@ -253,6 +297,36 @@ public class MinecraftGLSurface extends FrameLayout implements GrabListener {
 
     private int safeHeight(int height) {
         return Math.max(1, height > 0 ? height : getHeight());
+    }
+
+    private float scaleInputX(float x) {
+        return x * inputScaleX;
+    }
+
+    private float scaleInputY(float y) {
+        return y * inputScaleY;
+    }
+
+    private float scaleDeltaX(float dx) {
+        return dx * inputScaleX;
+    }
+
+    private float scaleDeltaY(float dy) {
+        return dy * inputScaleY;
+    }
+
+    private static final class RenderSize {
+        final int viewWidth;
+        final int viewHeight;
+        final int renderWidth;
+        final int renderHeight;
+
+        RenderSize(int viewWidth, int viewHeight, int renderWidth, int renderHeight) {
+            this.viewWidth = Math.max(1, viewWidth);
+            this.viewHeight = Math.max(1, viewHeight);
+            this.renderWidth = Math.max(1, renderWidth);
+            this.renderHeight = Math.max(1, renderHeight);
+        }
     }
 
     private void notifyRenderingStartedSoon() {
@@ -570,8 +644,8 @@ public class MinecraftGLSurface extends FrameLayout implements GrabListener {
 
     private void sendTapClickAt(float x, float y) {
         CallbackBridge.setInputReady(true);
-        float clampedX = clamp(x, 0f, Math.max(1, CallbackBridge.windowWidth));
-        float clampedY = clamp(y, 0f, Math.max(1, CallbackBridge.windowHeight));
+        float clampedX = clamp(scaleInputX(x), 0f, Math.max(1, CallbackBridge.windowWidth));
+        float clampedY = clamp(scaleInputY(y), 0f, Math.max(1, CallbackBridge.windowHeight));
         // Keep the grabbed-mode invariant: do not call sendCursorPos() for a tap.
         // putMouseEventWithCoords() carries the click coordinates without first warping
         // the grabbed cursor, which prevents touch taps from snapping the camera.
@@ -595,15 +669,15 @@ public class MinecraftGLSurface extends FrameLayout implements GrabListener {
 
     private void sendAbsoluteCursor(float x, float y) {
         CallbackBridge.setInputReady(true);
-        CallbackBridge.mouseX = clamp(x, 0f, Math.max(1, CallbackBridge.windowWidth));
-        CallbackBridge.mouseY = clamp(y, 0f, Math.max(1, CallbackBridge.windowHeight));
+        CallbackBridge.mouseX = clamp(scaleInputX(x), 0f, Math.max(1, CallbackBridge.windowWidth));
+        CallbackBridge.mouseY = clamp(scaleInputY(y), 0f, Math.max(1, CallbackBridge.windowHeight));
         CallbackBridge.sendCursorPos(CallbackBridge.mouseX, CallbackBridge.mouseY);
     }
 
     private void sendRelativeCursor(float dx, float dy) {
         CallbackBridge.setInputReady(true);
-        CallbackBridge.mouseX += dx;
-        CallbackBridge.mouseY += dy;
+        CallbackBridge.mouseX += scaleDeltaX(dx);
+        CallbackBridge.mouseY += scaleDeltaY(dy);
         CallbackBridge.sendCursorPos(CallbackBridge.mouseX, CallbackBridge.mouseY);
     }
 

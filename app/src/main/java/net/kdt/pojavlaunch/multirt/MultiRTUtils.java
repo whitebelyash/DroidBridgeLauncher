@@ -39,7 +39,7 @@ public final class MultiRTUtils {
     public static File getRuntimeDir(@NonNull String runtimeName) {
         return new File(getRuntimesHome(), runtimeName);
     }
-    // Launch side code
+
     @NonNull
     public static File getRuntimeHome(@NonNull String runtimeName) {
         return getRuntimeDir(runtimeName);
@@ -107,7 +107,6 @@ public final class MultiRTUtils {
             unpackPack200Files(runtimeDir);
             copyAwtDummyNativeLibraries(runtimeDir);
         } catch (IOException e) {
-            // Java 8 won't boot without rt.jar/resources.jar etc
             throw new RuntimeException("Failed to post-prepare runtime in "
                     + runtimeDir.getAbsolutePath(), e);
         }
@@ -125,8 +124,7 @@ public final class MultiRTUtils {
             oldName.renameTo(newName);
         }
     }
-    // Old Minecraft creates a java.awt component/frame very early so Java 8 needs to spoof the xawt
-    //Native stubs to resolve thsi method of the initID() before Cacio finishes bootstrap
+
     private static void copyAwtDummyNativeLibraries(@NonNull File runtimeDir) throws IOException {
         File runtimeLibDir = resolveRuntimeLibDir(runtimeDir);
         copyDummyNativeLib("libawt_xawt.so", runtimeLibDir);
@@ -230,14 +228,14 @@ public final class MultiRTUtils {
             return;
         }
 
-        File unpack200 = findUnpack200(runtimeDir);
-        if (unpack200 == null || !unpack200.isFile()) {
-            throw new IOException("Runtime has .pack files but bin/unpack200 was not found: "
-                    + runtimeDir.getAbsolutePath());
-        }
+        File nativeUnpack200 = new File(PathManager.DIR_NATIVE_LIB, "libunpack200.so");
+        File runtimeUnpack200 = findUnpack200(runtimeDir);
 
-        //noinspection ResultOfMethodCallIgnored
-        unpack200.setExecutable(true, false);
+        if (!nativeUnpack200.isFile() && (runtimeUnpack200 == null || !runtimeUnpack200.isFile())) {
+            throw new IOException("Runtime has .pack files but neither APK libunpack200.so nor runtime bin/unpack200 was found. runtime="
+                    + runtimeDir.getAbsolutePath()
+                    + " nativeDir=" + PathManager.DIR_NATIVE_LIB);
+        }
 
         String ldPath = buildRuntimeLdLibraryPath(runtimeDir);
 
@@ -255,7 +253,29 @@ public final class MultiRTUtils {
                 throw new IOException("Unable to replace existing unpacked jar: " + outputJar.getAbsolutePath());
             }
 
-            runUnpack200(unpack200, ldPath, packFile, outputJar);
+            IOException nativeFailure = null;
+            if (nativeUnpack200.isFile()) {
+                try {
+                    runApkNativeUnpack200(nativeUnpack200, ldPath, packFile, outputJar);
+                    continue;
+                } catch (IOException e) {
+                    nativeFailure = e;
+                    Logging.e(TAG, "APK libunpack200.so failed, trying runtime unpack200 if available", e);
+                }
+            }
+
+            if (runtimeUnpack200 != null && runtimeUnpack200.isFile()) {
+                try {
+                    runRuntimeUnpack200(runtimeUnpack200, ldPath, packFile, outputJar);
+                    continue;
+                } catch (IOException runtimeFailure) {
+                    if (nativeFailure != null) runtimeFailure.addSuppressed(nativeFailure);
+                    throw runtimeFailure;
+                }
+            }
+
+            if (nativeFailure != null) throw nativeFailure;
+            throw new IOException("Unable to unpack pack200 file: " + packFile.getAbsolutePath());
         }
     }
 
@@ -286,12 +306,41 @@ public final class MultiRTUtils {
         return findFileNamed(runtimeDir, "unpack200", 4);
     }
 
-    private static void runUnpack200(
+    private static void runApkNativeUnpack200(
+            @NonNull File nativeUnpack200,
+            @NonNull String ldPath,
+            @NonNull File packFile,
+            @NonNull File outputJar
+    ) throws IOException {
+        File nativeDir = nativeUnpack200.getParentFile();
+        if (nativeDir == null) throw new IOException("libunpack200.so has no parent: " + nativeUnpack200.getAbsolutePath());
+
+        // This mirrors Zalith/Pojav: execute the APK native helper from the APK native lib dir.
+        ProcessBuilder processBuilder = new ProcessBuilder(
+                "./" + nativeUnpack200.getName(),
+                "-r",
+                packFile.getAbsolutePath(),
+                outputJar.getAbsolutePath()
+        ).directory(nativeDir).redirectErrorStream(true);
+
+        Map<String, String> env = processBuilder.environment();
+        env.put("LD_LIBRARY_PATH", nativeDir.getAbsolutePath() + ":" + ldPath);
+        env.put("PATH", nativeDir.getAbsolutePath() + ":" + env.getOrDefault("PATH", ""));
+
+        runAndCheck(processBuilder, "apk-native libunpack200", packFile, outputJar, nativeDir.getAbsolutePath() + ":" + ldPath);
+    }
+
+    private static void runRuntimeUnpack200(
             @NonNull File unpack200,
             @NonNull String ldPath,
             @NonNull File packFile,
             @NonNull File outputJar
     ) throws IOException {
+        // Fallback only. Android 14+ may reject executing this from writable app data.
+        // The APK native libunpack200.so path above is preferred.
+        //noinspection ResultOfMethodCallIgnored
+        unpack200.setExecutable(true, false);
+
         ProcessBuilder processBuilder = new ProcessBuilder(
                 unpack200.getAbsolutePath(),
                 "-r",
@@ -301,8 +350,21 @@ public final class MultiRTUtils {
 
         Map<String, String> env = processBuilder.environment();
         env.put("LD_LIBRARY_PATH", ldPath);
-        env.put("PATH", unpack200.getParentFile().getAbsolutePath() + ":" + env.getOrDefault("PATH", ""));
+        File parent = unpack200.getParentFile();
+        if (parent != null) {
+            env.put("PATH", parent.getAbsolutePath() + ":" + env.getOrDefault("PATH", ""));
+        }
 
+        runAndCheck(processBuilder, "runtime unpack200", packFile, outputJar, ldPath);
+    }
+
+    private static void runAndCheck(
+            @NonNull ProcessBuilder processBuilder,
+            @NonNull String label,
+            @NonNull File packFile,
+            @NonNull File outputJar,
+            @NonNull String ldPath
+    ) throws IOException {
         Process process = null;
         try {
             process = processBuilder.start();
@@ -316,17 +378,22 @@ public final class MultiRTUtils {
             String processOutput = new String(output.toByteArray(), StandardCharsets.UTF_8);
 
             if (exitCode != 0) {
-                throw new IOException("unpack200 failed with exit " + exitCode
+                throw new IOException(label + " failed with exit " + exitCode
                         + "\npack=" + packFile.getAbsolutePath()
                         + "\nout=" + outputJar.getAbsolutePath()
                         + "\nLD_LIBRARY_PATH=" + ldPath
                         + "\n" + processOutput);
             }
 
-            Logging.i(TAG, "unpack200 OK: " + outputJar.getAbsolutePath());
+            if (!outputJar.isFile()) {
+                throw new IOException(label + " returned success but output jar is missing: "
+                        + outputJar.getAbsolutePath());
+            }
+
+            Logging.i(TAG, label + " OK: " + outputJar.getAbsolutePath());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new IOException("Interrupted while running unpack200 for " + packFile.getAbsolutePath(), e);
+            throw new IOException("Interrupted while running " + label + " for " + packFile.getAbsolutePath(), e);
         } finally {
             if (process != null) {
                 process.destroy();
@@ -338,6 +405,7 @@ public final class MultiRTUtils {
     private static String buildRuntimeLdLibraryPath(@NonNull File runtimeDir) {
         ArrayList<String> paths = new ArrayList<>();
 
+        addPath(paths, new File(PathManager.DIR_NATIVE_LIB));
         addPath(paths, new File(runtimeDir, "lib"));
         addPath(paths, new File(runtimeDir, "lib/aarch64"));
         addPath(paths, new File(runtimeDir, "lib/aarch64/jli"));
@@ -386,8 +454,7 @@ public final class MultiRTUtils {
         }
         return out.toString();
     }
-    // The launcher will expect the root runtime to contain a bin/lib or jre/bin/jre/lib
-    // If the wrapper folder detected, this moves it contents up into the runtimeDir
+
     public static void normalizeRuntimeDirIfNeeded(@NonNull File runtimeDir) throws IOException {
         if (!runtimeDir.isDirectory()) return;
 
@@ -405,7 +472,9 @@ public final class MultiRTUtils {
             return;
         }
 
-        File tempMoveDir = new File(runtimeDir.getParentFile(), runtimeDir.getName() + ".normalized");
+        File parent = runtimeDir.getParentFile();
+        if (parent == null) return;
+        File tempMoveDir = new File(parent, runtimeDir.getName() + ".normalized");
         PathManager.deleteQuietly(tempMoveDir);
         if (!tempMoveDir.mkdirs()) {
             throw new IOException("Unable to create normalize temp dir: " + tempMoveDir.getAbsolutePath());
@@ -462,7 +531,9 @@ public final class MultiRTUtils {
     }
 
     private static void extractTarXz(@NonNull InputStream source, @NonNull File destinationDir) throws IOException {
-        File tempArchive = File.createTempFile("runtime-pack-", ".tar.xz", destinationDir.getParentFile());
+        File parent = destinationDir.getParentFile();
+        if (parent == null) parent = destinationDir;
+        File tempArchive = File.createTempFile("runtime-pack-", ".tar.xz", parent);
         try {
             try (InputStream input = source; OutputStream output = new FileOutputStream(tempArchive)) {
                 Tools.copy(input, output);

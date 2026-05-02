@@ -34,14 +34,15 @@ public final class TouchControlData {
     public float height = 48f;
     public float sizePercent = 100f;
     public float opacity = 0.72f;
+    public float cornerRadius = 16f;
+    public float strokeWidth = 2f;
+    public int strokeColor = 0x99FFFFFF;
+    public int backgroundColor = 0x66000000;
     public boolean toggle;
     public boolean visibleInGame = true;
     public boolean visibleInMenu = true;
     public boolean joystickAbsolute;
     public boolean joystickForwardLock;
-    private static float clampSizePercent(float value) {
-        return Math.max(30f, Math.min(250f, value));
-    }
 
     @Nullable public String rawX;
     @Nullable public String rawY;
@@ -85,6 +86,7 @@ public final class TouchControlData {
         data.opacity = 0.55f;
         data.visibleInGame = true;
         data.visibleInMenu = false;
+        data.cornerRadius = 999f;
         return data;
     }
 
@@ -104,6 +106,10 @@ public final class TouchControlData {
         copy.height = height;
         copy.sizePercent = sizePercent;
         copy.opacity = opacity;
+        copy.cornerRadius = cornerRadius;
+        copy.strokeWidth = strokeWidth;
+        copy.strokeColor = strokeColor;
+        copy.backgroundColor = backgroundColor;
         copy.toggle = toggle;
         copy.visibleInGame = visibleInGame;
         copy.visibleInMenu = visibleInMenu;
@@ -122,8 +128,7 @@ public final class TouchControlData {
         json.put("action", action);
         json.put("keyCode", keyCode);
         JSONArray keys = new JSONArray();
-        int[] codes = normalizedKeyCodes();
-        for (int code : codes) keys.put(code);
+        for (int code : normalizedKeyCodes()) keys.put(code);
         json.put("keyCodes", keys);
         json.put("mouseButton", mouseButton);
         json.put("scrollY", scrollY);
@@ -133,6 +138,10 @@ public final class TouchControlData {
         json.put("height", height);
         json.put("sizePercent", sizePercent);
         json.put("opacity", opacity);
+        json.put("cornerRadius", cornerRadius);
+        json.put("strokeWidth", strokeWidth);
+        json.put("strokeColor", strokeColor);
+        json.put("backgroundColor", backgroundColor);
         json.put("toggle", toggle);
         json.put("visibleInGame", visibleInGame);
         json.put("visibleInMenu", visibleInMenu);
@@ -146,7 +155,7 @@ public final class TouchControlData {
     @NonNull
     public static TouchControlData fromJson(@NonNull JSONObject json) {
         TouchControlData data = new TouchControlData();
-        data.id = json.optString("id", data.id);
+        data.id = sanitizeId(json.optString("id", data.id));
         data.label = json.optString("label", json.optString("name", data.label));
         data.action = json.optString("action", data.action);
         data.keyCode = json.optInt("keyCode", data.keyCode);
@@ -159,6 +168,10 @@ public final class TouchControlData {
         data.height = (float) json.optDouble("height", data.height);
         data.sizePercent = clampSizePercent((float) json.optDouble("sizePercent", data.sizePercent));
         data.opacity = (float) json.optDouble("opacity", data.opacity);
+        data.cornerRadius = (float) json.optDouble("cornerRadius", data.cornerRadius);
+        data.strokeWidth = (float) json.optDouble("strokeWidth", data.strokeWidth);
+        data.strokeColor = json.optInt("strokeColor", data.strokeColor);
+        data.backgroundColor = json.optInt("backgroundColor", json.optInt("bgColor", data.backgroundColor));
         data.toggle = json.optBoolean("toggle", json.optBoolean("isToggle", data.toggle));
         data.visibleInGame = json.optBoolean("visibleInGame", json.optBoolean("displayInGame", data.visibleInGame));
         data.visibleInMenu = json.optBoolean("visibleInMenu", json.optBoolean("displayInMenu", data.visibleInMenu));
@@ -172,10 +185,15 @@ public final class TouchControlData {
     @NonNull
     public static TouchControlData fromPojavControl(@NonNull JSONObject json) {
         TouchControlData data = new TouchControlData();
+        data.id = sanitizeId(json.optString("id", data.id));
         data.label = json.optString("name", json.optString("label", "Button"));
         data.width = (float) json.optDouble("width", 64d);
         data.height = (float) json.optDouble("height", 48d);
         data.opacity = (float) json.optDouble("opacity", 0.72d);
+        data.cornerRadius = (float) json.optDouble("cornerRadius", data.cornerRadius);
+        data.strokeWidth = (float) json.optDouble("strokeWidth", data.strokeWidth);
+        data.strokeColor = json.optInt("strokeColor", data.strokeColor);
+        data.backgroundColor = json.optInt("bgColor", json.optInt("backgroundColor", data.backgroundColor));
         data.toggle = json.optBoolean("isToggle", json.optBoolean("toggle", false));
         data.visibleInGame = json.optBoolean("displayInGame", json.optBoolean("visibleInGame", true));
         data.visibleInMenu = json.optBoolean("displayInMenu", json.optBoolean("visibleInMenu", true));
@@ -199,7 +217,12 @@ public final class TouchControlData {
                 (float) json.optDouble("width", 120d),
                 (float) json.optDouble("height", 120d)
         );
-        data.opacity = (float) json.optDouble("opacity", 0.55d);
+        data.id = sanitizeId(json.optString("id", data.id));
+        data.opacity = (float) json.optDouble("opacity", data.opacity);
+        data.cornerRadius = (float) json.optDouble("cornerRadius", data.cornerRadius);
+        data.strokeWidth = (float) json.optDouble("strokeWidth", data.strokeWidth);
+        data.strokeColor = json.optInt("strokeColor", data.strokeColor);
+        data.backgroundColor = json.optInt("bgColor", json.optInt("backgroundColor", data.backgroundColor));
         data.visibleInGame = json.optBoolean("displayInGame", true);
         data.visibleInMenu = json.optBoolean("displayInMenu", false);
         data.rawX = optNullableString(json, "dynamicX", null);
@@ -213,6 +236,11 @@ public final class TouchControlData {
     public int[] normalizedKeyCodes() {
         if (keyCodes != null && keyCodes.length > 0) return keyCodes;
         return new int[]{keyCode};
+    }
+
+    public void setKeyCodes(@NonNull int[] codes) {
+        keyCodes = codes.length == 0 ? new int[]{keyCode} : codes.clone();
+        keyCode = keyCodes[0];
     }
 
     @NonNull
@@ -231,7 +259,10 @@ public final class TouchControlData {
     }
 
     private static int firstUsableKey(@NonNull int[] keycodes, int fallback) {
-        return keycodes.length > 0 ? keycodes[0] : fallback;
+        for (int key : keycodes) {
+            if (key != 0) return key;
+        }
+        return fallback;
     }
 
     @Nullable
@@ -239,6 +270,18 @@ public final class TouchControlData {
         if (!json.has(key) || json.isNull(key)) return fallback;
         String value = json.optString(key, null);
         return value == null || value.trim().isEmpty() || "null".equalsIgnoreCase(value.trim()) ? fallback : value;
+    }
+
+    @NonNull
+    private static String sanitizeId(@Nullable String value) {
+        if (value == null || value.trim().isEmpty() || "null".equalsIgnoreCase(value.trim())) {
+            return UUID.randomUUID().toString();
+        }
+        return value.trim();
+    }
+
+    private static float clampSizePercent(float value) {
+        return Math.max(30f, Math.min(250f, value));
     }
 
     private static void applyImportedKey(@NonNull TouchControlData data, int key, @NonNull int[] allKeys) {
@@ -273,8 +316,7 @@ public final class TouchControlData {
                 data.action = TouchControlActions.KEYBOARD;
                 return;
             case SPECIAL_VIRTUAL_MOUSE:
-                data.action = TouchControlActions.MOUSE;
-                data.mouseButton = 0;
+                data.action = TouchControlActions.VIRTUAL_MOUSE;
                 return;
             default:
                 data.action = TouchControlActions.KEY;

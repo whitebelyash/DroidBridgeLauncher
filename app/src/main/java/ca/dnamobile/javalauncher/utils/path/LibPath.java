@@ -7,6 +7,7 @@ public final class LibPath {
     }
 
     private static File COMPONENTS_DIR;
+    private static File SUPPORT_COMPONENTS_DIR;
     private static File OTHER_LOGIN_DIR;
 
     public static File CACIO_8;
@@ -28,11 +29,19 @@ public final class LibPath {
     public static File PRO_GRADE;
 
     public static void refresh() {
-        COMPONENTS_DIR = new File(PathManager.DIR_DATA, "components");
-        OTHER_LOGIN_DIR = new File(PathManager.DIR_GAME_HOME, "other_login");
+        COMPONENTS_DIR = new File(safeDataDir(), "components");
 
-        CACIO_8 = new File(PathManager.DIR_GAME_HOME, "caciocavallo");
-        CACIO_17 = new File(PathManager.DIR_GAME_HOME, "caciocavallo17");
+        /*
+         * Keep launcher support jars in app-private storage, not in the user-selected
+         * Minecraft install location. The selected storage path can be removable or
+         * SAF/scoped, and a failed support-component unpack should never block the
+         * launcher from starting.
+         */
+        SUPPORT_COMPONENTS_DIR = safeFilesDir();
+        OTHER_LOGIN_DIR = new File(SUPPORT_COMPONENTS_DIR, "other_login");
+
+        CACIO_8 = new File(SUPPORT_COMPONENTS_DIR, "caciocavallo");
+        CACIO_17 = new File(SUPPORT_COMPONENTS_DIR, "caciocavallo17");
         CACIO_17_AGENT = new File(CACIO_17, "cacio-agent.jar");
 
         FORGE_INSTALLER = new File(COMPONENTS_DIR, "forge_installer.jar");
@@ -48,6 +57,20 @@ public final class LibPath {
         LOG4J_XML_1_7 = new File(COMPONENTS_DIR, "log4j-rce-patch-1.7.xml");
         LOG4J_XML_1_12 = new File(COMPONENTS_DIR, "log4j-rce-patch-1.12.xml");
         PRO_GRADE = new File(COMPONENTS_DIR, "pro-grade.jar");
+    }
+
+    private static File safeFilesDir() {
+        if (PathManager.DIR_FILE != null) return PathManager.DIR_FILE;
+        if (PathManager.DIR_DATA != null && !PathManager.DIR_DATA.trim().isEmpty()) {
+            return new File(PathManager.DIR_DATA, "files");
+        }
+        return new File("files");
+    }
+
+    private static String safeDataDir() {
+        return PathManager.DIR_DATA != null && !PathManager.DIR_DATA.trim().isEmpty()
+                ? PathManager.DIR_DATA
+                : ".";
     }
 
     static {

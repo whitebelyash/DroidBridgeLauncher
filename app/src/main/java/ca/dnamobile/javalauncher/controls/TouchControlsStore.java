@@ -20,23 +20,33 @@ import ca.dnamobile.javalauncher.feature.log.Logging;
 public final class TouchControlsStore {
     private static final String TAG = "TouchControlsStore";
 
-    /** Runtime copy stored under app files/touch_controls/. */
+    /**
+     * Runtime copy stored under:
+     *   /data/data/<package>/files/touch_controls/default_touch.json
+     *
+     * This is the file users edit at runtime. The bundled asset is only copied here
+     * when this runtime file does not exist yet or is empty.
+     */
     private static final String DEFAULT_FILE = "default_touch.json";
 
     /**
-     * Bundled defaults to try, in order.
+     * Release default bundled in the APK.
      *
-     * Put your release default at:
-     *   src/main/assets/touch_controls/default.json
+     * Put your real default layout here:
+     *   app/src/main/assets/touch_controls/default_touch.json
      *
-     * The extra names are supported so older test APKs / local experiments still work.
+     * This path is intentionally first because this is the name you are using in the
+     * project assets folder. The extra candidates only keep older local test names from
+     * breaking if you still have them in a branch.
      */
+    private static final String DEFAULT_ASSET = "touch_controls/default_touch.json";
     private static final String[] DEFAULT_ASSET_CANDIDATES = new String[]{
+            DEFAULT_ASSET,
             "touch_controls/default.json",
-            "touch_controls/default_touch.json",
             "touch_controls/default_touch_controls.json",
             "default_touch.json",
-            "default.json"
+            "default.json",
+            "default_touch_controls.json"
     };
 
     private TouchControlsStore() {
@@ -59,18 +69,19 @@ public final class TouchControlsStore {
     public static File ensureDefaultLayout(@NonNull Context context) {
         File target = getDefaultLayoutFile(context);
 
+        // Do not overwrite this file once it exists. After first launch it is the user's
+        // editable copy. If they edit the default layout, their changes must win.
         if (!target.isFile() || target.length() == 0) {
             try {
-                // Important: parse the bundled file through the exact same importer path
-                // used by manual Import. This converts Zalith/Mojo/Amethyst JSON into the
-                // JavaLauncher layout format and preserves dynamicX/dynamicY + scaledAt.
                 TouchControlsLayoutData bundled = loadBundledDefaultLayout(context);
                 saveLayout(target, bundled);
+                Logging.i(TAG, "Created default touch controls from bundled asset: " + DEFAULT_ASSET);
             } catch (Throwable assetThrowable) {
+                Logging.e(TAG, "Bundled default_touch.json missing or invalid. Falling back to emergency in-code layout.", assetThrowable);
                 try {
                     saveLayout(target, TouchControlsLayoutData.defaultLayout());
                 } catch (Throwable fallbackThrowable) {
-                    Logging.e(TAG, "Unable to create default touch controls", fallbackThrowable);
+                    Logging.e(TAG, "Unable to create fallback default touch controls", fallbackThrowable);
                 }
             }
         }
@@ -80,15 +91,15 @@ public final class TouchControlsStore {
 
     @NonNull
     public static File getSelectedLayoutFile(@NonNull Context context) {
-        ensureDefaultLayout(context);
+        File defaultFile = ensureDefaultLayout(context);
         String selected = ControlsPreferences.getSelectedLayoutPath(context);
         if (selected != null) {
             File selectedFile = new File(selected);
             if (selectedFile.isFile()) return selectedFile;
         }
-        File fallback = getDefaultLayoutFile(context);
-        ControlsPreferences.setSelectedLayoutPath(context, fallback.getAbsolutePath());
-        return fallback;
+
+        ControlsPreferences.setSelectedLayoutPath(context, defaultFile.getAbsolutePath());
+        return defaultFile;
     }
 
     @NonNull
@@ -152,17 +163,22 @@ public final class TouchControlsStore {
         for (String assetPath : DEFAULT_ASSET_CANDIDATES) {
             try (InputStream input = context.getAssets().open(assetPath)) {
                 String text = readStreamText(input);
+
+                // Important: parse through the same importer as manual Import.
+                // This keeps JavaLauncher JSON and Zalith/Mojo/Amethyst-style
+                // mControlDataList / mJoystickDataList layouts working the same way.
                 TouchControlsLayoutData data = TouchControlsLayoutData.fromJson(new JSONObject(text));
                 if (data.name == null || data.name.trim().isEmpty()) {
                     data.name = "Default Touch Controls";
                 }
+                Logging.i(TAG, "Loaded bundled default touch controls from asset: " + assetPath);
                 return data;
             } catch (Throwable throwable) {
                 lastError = throwable;
             }
         }
 
-        throw new IllegalStateException("No bundled default touch layout found in assets.", lastError);
+        throw new IllegalStateException("No bundled default touch layout found. Expected " + DEFAULT_ASSET, lastError);
     }
 
     @NonNull

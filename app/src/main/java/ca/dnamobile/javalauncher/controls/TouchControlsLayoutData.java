@@ -10,9 +10,9 @@ import java.util.List;
 
 /** Serializable JavaLauncher touch-control layout. */
 public final class TouchControlsLayoutData {
-    public int version = 2;
+    public int version = 1;
     @NonNull public String name = "Touch Controls";
-    /** Zalith/Pojav-style layouts store dynamicX/dynamicY formulas using px(...) / 100 * preferred_scale. */
+    /** Pojav/Zalith/Mojo dynamic formulas use px(...) / 100 * preferredScale. */
     public float preferredScale = 100f;
     @NonNull public final List<TouchControlData> controls = new ArrayList<>();
 
@@ -35,7 +35,7 @@ public final class TouchControlsLayoutData {
     public static TouchControlsLayoutData fromJson(@NonNull JSONObject root) throws Exception {
         if (root.has("controls")) {
             TouchControlsLayoutData data = new TouchControlsLayoutData();
-            data.version = root.optInt("version", 2);
+            data.version = root.optInt("version", 1);
             data.name = root.optString("name", "Touch Controls");
             data.preferredScale = (float) root.optDouble("preferredScale", root.optDouble("scaledAt", 100d));
             JSONArray controls = root.optJSONArray("controls");
@@ -48,8 +48,7 @@ public final class TouchControlsLayoutData {
             return data;
         }
 
-        // Pojav/Zalith/Mojo/Amethyst-derived layouts normally carry mControlDataList.
-        // Zalith also has mJoystickDataList and mDrawerDataList, so import those too.
+        // Pojav/Zalith/Mojo/Amethyst derived layouts normally carry mControlDataList.
         if (root.has("mControlDataList") || root.has("mJoystickDataList") || root.has("mDrawerDataList")) {
             return fromPojavLikeJson(root);
         }
@@ -77,7 +76,6 @@ public final class TouchControlsLayoutData {
         TouchControlsLayoutData data = new TouchControlsLayoutData();
         data.name = root.optString("name", "Imported Pojav/Zalith Controls");
         data.preferredScale = (float) root.optDouble("scaledAt", root.optDouble("preferredScale", 100d));
-
         JSONArray controls = root.optJSONArray("mControlDataList");
         if (controls != null) {
             for (int i = 0; i < controls.length(); i++) {
@@ -85,7 +83,6 @@ public final class TouchControlsLayoutData {
                 if (object != null) data.controls.add(TouchControlData.fromPojavControl(object));
             }
         }
-
         JSONArray joysticks = root.optJSONArray("mJoystickDataList");
         if (joysticks != null) {
             for (int i = 0; i < joysticks.length(); i++) {
@@ -94,18 +91,13 @@ public final class TouchControlsLayoutData {
             }
         }
 
-        // Drawers are more complex in Zalith/Mojo because sub-buttons are revealed by
-        // a parent drawer. JavaLauncher's first-pass layout does not have drawer state,
-        // so import the parent and sub-buttons as normal buttons rather than dropping them.
         JSONArray drawers = root.optJSONArray("mDrawerDataList");
         if (drawers != null) {
             for (int i = 0; i < drawers.length(); i++) {
                 JSONObject drawer = drawers.optJSONObject(i);
                 if (drawer == null) continue;
-
                 JSONObject properties = drawer.optJSONObject("properties");
                 if (properties != null) data.controls.add(TouchControlData.fromPojavControl(properties));
-
                 JSONArray subButtons = drawer.optJSONArray("buttonProperties");
                 if (subButtons != null) {
                     for (int j = 0; j < subButtons.length(); j++) {
@@ -123,25 +115,93 @@ public final class TouchControlsLayoutData {
     public static TouchControlsLayoutData defaultLayout() {
         TouchControlsLayoutData data = new TouchControlsLayoutData();
         data.name = "Default Touch Controls";
-        data.controls.add(TouchControlData.key("W", 87, 96, 520, 56, 48));
-        data.controls.add(TouchControlData.key("A", 65, 36, 580, 56, 48));
-        data.controls.add(TouchControlData.key("S", 83, 96, 580, 56, 48));
-        data.controls.add(TouchControlData.key("D", 68, 156, 580, 56, 48));
-        data.controls.add(TouchControlData.key("Jump", 32, 1560, 590, 96, 58));
-        data.controls.add(TouchControlData.key("Sneak", 340, 1448, 590, 96, 58));
-        data.controls.add(TouchControlData.key("Inv", 69, 1672, 446, 78, 54));
-        data.controls.add(TouchControlData.key("Esc", 256, 34, 34, 72, 52));
-        data.controls.add(TouchControlData.mouse("Hit", 0, 1630, 300));
-        data.controls.add(TouchControlData.mouse("Use", 1, 1740, 300));
 
-        TouchControlData menu = new TouchControlData();
-        menu.label = "Menu";
-        menu.action = TouchControlActions.MENU;
-        menu.x = 118;
-        menu.y = 34;
-        menu.width = 82;
-        menu.height = 52;
-        data.controls.add(menu);
+        // Defaults use dynamic formulas so they stay sane on phones, tablets, and
+        // different display densities. Width/height are JavaLauncher layout units;
+        // rawX/rawY formulas resolve to final Android pixels at draw time.
+        TouchControlData keyboard = new TouchControlData();
+        keyboard.label = "Keyboard";
+        keyboard.action = TouchControlActions.KEYBOARD;
+        keyboard.width = 80;
+        keyboard.height = 30;
+        keyboard.rawX = "${margin} * 3 + ${width} * 2";
+        keyboard.rawY = "${margin}";
+        data.controls.add(keyboard);
+
+        TouchControlData chat = TouchControlData.key("Chat", 84, 0, 0, 80, 30);
+        chat.rawX = "${margin} * 2 + ${width}";
+        chat.rawY = "${margin}";
+        data.controls.add(chat);
+
+        TouchControlData debug = TouchControlData.key("Debug", 292, 0, 0, 80, 30);
+        debug.rawX = "${margin}";
+        debug.rawY = "${margin} * 2 + ${height}";
+        data.controls.add(debug);
+
+        TouchControlData perspective = TouchControlData.key("3rd", 294, 0, 0, 80, 30);
+        perspective.rawX = "${margin} * 2 + ${width}";
+        perspective.rawY = "${margin} * 2 + ${height}";
+        data.controls.add(perspective);
+
+        TouchControlData esc = TouchControlData.key("Esc", 256, 0, 0, 80, 30);
+        esc.rawX = "${margin}";
+        esc.rawY = "${margin}";
+        data.controls.add(esc);
+
+        TouchControlData w = TouchControlData.key("▲", 87, 0, 0, 50, 50);
+        w.rawX = "${margin} * 2 + ${width}";
+        w.rawY = "${bottom} - ${margin} * 3 - ${height} * 2";
+        data.controls.add(w);
+
+        TouchControlData a = TouchControlData.key("◀", 65, 0, 0, 50, 50);
+        a.rawX = "${margin}";
+        a.rawY = "${bottom} - ${margin} * 2 - ${height}";
+        data.controls.add(a);
+
+        TouchControlData s = TouchControlData.key("▼", 83, 0, 0, 50, 50);
+        s.rawX = "${margin} * 2 + ${width}";
+        s.rawY = "${bottom} - ${margin}";
+        data.controls.add(s);
+
+        TouchControlData d = TouchControlData.key("▶", 68, 0, 0, 50, 50);
+        d.rawX = "${margin} * 3 + ${width} * 2";
+        d.rawY = "${bottom} - ${margin} * 2 - ${height}";
+        data.controls.add(d);
+
+        TouchControlData sneak = TouchControlData.key("◇", 340, 0, 0, 50, 50);
+        sneak.toggle = true;
+        sneak.rawX = "${margin} * 2 + ${width}";
+        sneak.rawY = "${bottom} - ${margin} * 4 - ${height} * 3";
+        data.controls.add(sneak);
+
+        TouchControlData jump = TouchControlData.key("⬛", 32, 0, 0, 50, 50);
+        jump.rawX = "${right} - ${margin} * 2 - ${width}";
+        jump.rawY = "${bottom} - ${margin} * 2 - ${height}";
+        data.controls.add(jump);
+
+        TouchControlData inventory = TouchControlData.key("Inv", 69, 0, 0, 50, 50);
+        inventory.rawX = "${right} - ${margin}";
+        inventory.rawY = "${bottom} - ${margin}";
+        data.controls.add(inventory);
+
+        TouchControlData hit = TouchControlData.mouse("Hit", 0, 0, 0);
+        hit.rawX = "${right} - ${margin} * 3 - ${width} * 2";
+        hit.rawY = "${bottom} - ${margin} * 4 - ${height} * 3";
+        data.controls.add(hit);
+
+        TouchControlData use = TouchControlData.mouse("Use", 1, 0, 0);
+        use.rawX = "${right} - ${margin}";
+        use.rawY = "${bottom} - ${margin} * 4 - ${height} * 3";
+        data.controls.add(use);
+
+        TouchControlData mouse = new TouchControlData();
+        mouse.label = "Mouse";
+        mouse.action = TouchControlActions.VIRTUAL_MOUSE;
+        mouse.width = 80;
+        mouse.height = 30;
+        mouse.rawX = "${right}";
+        mouse.rawY = "${margin}";
+        data.controls.add(mouse);
+
         return data;
-    }
-}
+    }}

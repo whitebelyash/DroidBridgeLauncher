@@ -4,7 +4,6 @@ import android.content.Context;
 import android.content.res.AssetManager;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
 import net.kdt.pojavlaunch.Architecture;
 import net.kdt.pojavlaunch.Tools;
@@ -16,13 +15,19 @@ import java.io.InputStream;
 import java.util.LinkedHashSet;
 
 import ca.dnamobile.javalauncher.feature.log.Logging;
+import ca.dnamobile.javalauncher.launcher.RuntimeCompat;
 import ca.dnamobile.javalauncher.utils.path.PathManager;
 
 /**
- * Unpacks internal Java runtimes from assets.
+ * Zalith-style internal runtime unpack task.
  *
- * Java 8 packs from Pojav/Zalith store core jars as *.jar.pack in universal.tar.xz.
- * MultiRTUtils.postPrepare() must run unpack200 or rt.jar will never exist.
+ * Important for Android 14-16:
+ * - Do not call MultiRTUtils.getRuntimeHome() before installing. It throws when
+ *   the runtime is missing/broken, which prevents a fresh install from starting.
+ * - Do not invent a custom "version" marker. MultiRTUtils writes/reads
+ *   the marker through readInternalRuntimeVersion().
+ * - Do not require Java 8 bin/java. Game launches use VMLauncher/JLI. Java 8 is
+ *   valid when rt.jar + libjvm.so + pojav_version are present.
  */
 public class UnpackJreTask extends AbstractUnpackTask {
     private static final String TAG = "UnpackJreTask";
@@ -35,12 +40,17 @@ public class UnpackJreTask extends AbstractUnpackTask {
     private boolean checkFailed;
 
     public UnpackJreTask(@NonNull Context context, @NonNull Jre jre) {
-        this.context = context;
+        this.context = context.getApplicationContext();
         this.jre = jre;
 
         try {
-            assetManager = context.getAssets();
-            launcherRuntimeVersion = Tools.read(assetManager.open(jre.jrePath + "/version"));
+            assetManager = this.context.getAssets();
+            try (InputStream versionInput = assetManager.open(jre.jrePath + "/version")) {
+                launcherRuntimeVersion = Tools.read(versionInput).trim();
+            }
+            if ("Internal-8".equals(jre.jreName)) {
+                Logging.i(TAG, "Runtime patch active: " + RuntimeCompat.PATCH_ID);
+            }
         } catch (Throwable throwable) {
             checkFailed = true;
             Logging.e(TAG, "Failed to read bundled runtime version for " + jre.jreName, throwable);
@@ -56,51 +66,28 @@ public class UnpackJreTask extends AbstractUnpackTask {
         if (checkFailed) return false;
 
         try {
-            File runtimeHome = MultiRTUtils.getRuntimeHome(jre.jreName);
-
-            if (runtimeHome.exists()) {
-                MultiRTUtils.normalizeRuntimeDirIfNeeded(runtimeHome);
-                try {
-                    MultiRTUtils.postPrepare(jre.jreName);
-                } catch (Throwable throwable) {
-                    Logging.e(TAG, "postPrepare failed for existing runtime " + jre.jreName, throwable);
-                }
-            }
-
-            if (runtimeHome.exists() && !hasRequiredRuntimeFiles(runtimeHome, jre.jreName)) {
-                Logging.i(TAG, jre.jreName + " is installed but incomplete. Deleting and reinstalling: "
-                        + runtimeHome.getAbsolutePath());
-                logRuntimeTree(runtimeHome);
-                PathManager.deleteQuietly(runtimeHome);
-                return true;
-            }
-
             String installedRuntimeVersion = MultiRTUtils.readInternalRuntimeVersion(jre.jreName);
-            if (!launcherRuntimeVersion.equals(installedRuntimeVersion)) {
-                if (runtimeHome.exists()) {
-                    Logging.i(TAG, jre.jreName + " version mismatch. Deleting old runtime: "
-                            + runtimeHome.getAbsolutePath());
-                    PathManager.deleteQuietly(runtimeHome);
-                }
-                return true;
+            boolean versionMatches = launcherRuntimeVersion != null
+                    && launcherRuntimeVersion.equals(installedRuntimeVersion != null ? installedRuntimeVersion.trim() : null);
+
+            File runtimeHome = runtimeHomeFile();
+            int javaMajor = RuntimeCompat.javaMajorForRuntimeName(jre.jreName);
+            boolean runtimeUsable = RuntimeCompat.isRuntimeInstalledForJava(jre.jreName, runtimeHome, javaMajor);
+
+            if (versionMatches && runtimeUsable) {
+                Logging.i(TAG, jre.jreName + " is up to date. " + RuntimeCompat.describeRuntimeState(jre.jreName, runtimeHome));
+                return false;
             }
 
-            return false;
+            Logging.i(TAG, jre.jreName + " needs unpack. installedVersion=" + installedRuntimeVersion
+                    + " bundledVersion=" + launcherRuntimeVersion
+                    + " usable=" + runtimeUsable
+                    + " state=" + RuntimeCompat.describeRuntimeState(jre.jreName, runtimeHome));
+
+            return true;
         } catch (Throwable throwable) {
-            Logging.e("CheckInternalRuntime", Tools.printToString(throwable));
-
-            try {
-                File runtimeHome = MultiRTUtils.getRuntimeHome(jre.jreName);
-                if (!hasRequiredRuntimeFiles(runtimeHome, jre.jreName)) {
-                    if (runtimeHome.exists()) {
-                        logRuntimeTree(runtimeHome);
-                        PathManager.deleteQuietly(runtimeHome);
-                    }
-                    return true;
-                }
-            } catch (Throwable ignored) {
-            }
-
+            Logging.e(TAG, "Check failed for internal runtime " + jre.jreName, throwable);
+            // Match Zalith behavior: do not trap launcher startup if the check itself fails.
             return false;
         }
     }
@@ -110,6 +97,10 @@ public class UnpackJreTask extends AbstractUnpackTask {
         if (listener != null) listener.onTaskStart();
 
         try {
+            File runtimeHome = runtimeHomeFile();
+            File stagingHome = new File(runtimeHome.getParentFile(), runtimeHome.getName() + " installing");
+            PathManager.deleteQuietly(stagingHome);
+
             try (InputStream universal = assetManager.open(jre.jrePath + "/universal.tar.xz");
                  InputStream bin = openBinPack()) {
                 MultiRTUtils.installRuntimeNamedBinpack(
@@ -120,23 +111,36 @@ public class UnpackJreTask extends AbstractUnpackTask {
                 );
             }
 
-            MultiRTUtils.postPrepare(jre.jreName);
+            try {
+                MultiRTUtils.postPrepare(jre.jreName);
+            } catch (Throwable throwable) {
+                // Zalith logs and continues here. Java 8 unpack200 is already run
+                // inside installRuntimeNamedBinpack(); postPrepare is mostly native
+                // library normalization/copying.
+                Logging.e(TAG, "postPrepare failed for " + jre.jreName + "; launcher will validate installed runtime", throwable);
+            }
 
-            File runtimeHome = MultiRTUtils.getRuntimeHome(jre.jreName);
-            MultiRTUtils.normalizeRuntimeDirIfNeeded(runtimeHome);
 
-            if (!hasRequiredRuntimeFiles(runtimeHome, jre.jreName)) {
-                logRuntimeTree(runtimeHome);
-                throw new IllegalStateException(
-                        jre.jreName + " unpack completed but required files are still missing. runtimeHome="
-                                + runtimeHome.getAbsolutePath()
-                );
+            runtimeHome = runtimeHomeFile();
+            int javaMajor = RuntimeCompat.javaMajorForRuntimeName(jre.jreName);
+            Logging.i(TAG, "After unpack " + jre.jreName + ": " + RuntimeCompat.describeRuntimeState(jre.jreName, runtimeHome));
+
+            if (!RuntimeCompat.isRuntimeInstalledForJava(jre.jreName, runtimeHome, javaMajor)) {
+                Logging.e(TAG, jre.jreName + " unpack finished but runtime is still not usable. "
+                        + RuntimeCompat.describeRuntimeState(jre.jreName, runtimeHome), null);
             }
         } catch (Throwable throwable) {
-            Logging.e("UnpackJREAuto", "Internal JRE unpack failed for " + jre.jreName, throwable);
+            // Match Zalith: log, end task, and allow the launcher to open. The
+            // runtime dropdown/latestlog will show why Internal-8 is not usable.
+            Logging.e(TAG, "Internal JRE unpack failed for " + jre.jreName, throwable);
+        } finally {
+            if (listener != null) listener.onTaskEnd();
         }
+    }
 
-        if (listener != null) listener.onTaskEnd();
+    @NonNull
+    private File runtimeHomeFile() {
+        return new File(PathManager.DIR_MULTIRT_HOME, jre.jreName);
     }
 
     @NonNull
@@ -175,125 +179,5 @@ public class UnpackJreTask extends AbstractUnpackTask {
         }
 
         throw last != null ? last : new IOException("Unable to open runtime bin pack for " + primary);
-    }
-
-    private static boolean hasRequiredRuntimeFiles(@NonNull File runtimeHome, @NonNull String runtimeName) {
-        if (!runtimeHome.isDirectory()) return false;
-
-        boolean isJava8 = runtimeName.contains("8");
-
-        if (isJava8) {
-            File javaHome = findJava8Home(runtimeHome);
-            return javaHome != null && findLibJvm(javaHome) != null;
-        }
-
-        File javaHome = findJava9PlusHome(runtimeHome);
-        return javaHome != null && findLibJvm(javaHome) != null;
-    }
-
-    @Nullable
-    public static File findJava8Home(@NonNull File runtimeHome) {
-        File direct = new File(runtimeHome, "lib/rt.jar");
-        if (direct.isFile()) return runtimeHome;
-
-        File nestedJre = new File(runtimeHome, "jre/lib/rt.jar");
-        if (nestedJre.isFile()) return new File(runtimeHome, "jre");
-
-        File rtJar = findFileNamed(runtimeHome, "rt.jar", 6);
-        if (rtJar == null) return null;
-
-        File libDir = rtJar.getParentFile();
-        if (libDir == null || !"lib".equals(libDir.getName())) return null;
-
-        return libDir.getParentFile();
-    }
-
-    @Nullable
-    private static File findJava9PlusHome(@NonNull File runtimeHome) {
-        File modules = new File(runtimeHome, "lib/modules");
-        if (modules.isFile()) return runtimeHome;
-
-        File found = findFileNamed(runtimeHome, "modules", 6);
-        if (found == null) return null;
-
-        File libDir = found.getParentFile();
-        if (libDir == null || !"lib".equals(libDir.getName())) return null;
-
-        return libDir.getParentFile();
-    }
-
-    @Nullable
-    private static File findFileNamed(@NonNull File root, @NonNull String name, int depthLeft) {
-        if (depthLeft < 0 || !root.isDirectory()) return null;
-
-        File[] children = root.listFiles();
-        if (children == null) return null;
-
-        for (File child : children) {
-            if (child.isFile() && child.getName().equals(name)) {
-                return child;
-            }
-            if (child.isDirectory()) {
-                File found = findFileNamed(child, name, depthLeft - 1);
-                if (found != null) return found;
-            }
-        }
-
-        return null;
-    }
-
-    private static File findLibJvm(@NonNull File javaHome) {
-        File[] candidates = new File[]{
-                new File(javaHome, "lib/server/libjvm.so"),
-                new File(javaHome, "lib/client/libjvm.so"),
-                new File(javaHome, "lib/aarch64/server/libjvm.so"),
-                new File(javaHome, "lib/aarch64/client/libjvm.so"),
-                new File(javaHome, "lib/arm/server/libjvm.so"),
-                new File(javaHome, "lib/arm/client/libjvm.so"),
-                new File(javaHome, "lib/arm64/server/libjvm.so"),
-                new File(javaHome, "lib/arm64/client/libjvm.so"),
-                new File(javaHome, "lib/arm64-v8a/server/libjvm.so"),
-                new File(javaHome, "lib/arm64-v8a/client/libjvm.so"),
-                new File(javaHome, "lib/x86_64/server/libjvm.so"),
-                new File(javaHome, "lib/x86_64/client/libjvm.so"),
-                new File(javaHome, "lib/i386/server/libjvm.so"),
-                new File(javaHome, "lib/i386/client/libjvm.so")
-        };
-
-        for (File candidate : candidates) {
-            if (candidate.isFile()) {
-                return candidate;
-            }
-        }
-
-        return null;
-    }
-
-    private static void logRuntimeTree(@NonNull File runtimeHome) {
-        Logging.i(TAG, "Runtime tree for " + runtimeHome.getAbsolutePath() + ":");
-        logRuntimeTree(runtimeHome, 0, 3);
-    }
-
-    private static void logRuntimeTree(@NonNull File file, int depth, int maxDepth) {
-        if (depth > maxDepth || !file.exists()) return;
-
-        StringBuilder prefix = new StringBuilder();
-        for (int i = 0; i < depth; i++) prefix.append("  ");
-
-        Logging.i(TAG, prefix + file.getName() + (file.isDirectory() ? "/" : ""));
-
-        if (!file.isDirectory()) return;
-
-        File[] children = file.listFiles();
-        if (children == null) return;
-
-        int count = 0;
-        for (File child : children) {
-            if (count++ > 80) {
-                Logging.i(TAG, prefix + "  ...");
-                break;
-            }
-            logRuntimeTree(child, depth + 1, maxDepth);
-        }
     }
 }

@@ -26,6 +26,14 @@ public final class LauncherPreferences {
     private static final String KEY_SHOW_CONTROLLER_MOD_COMPAT_WARNINGS = "show_controller_mod_compat_warnings";
     private static final String KEY_FORCE_SDL_CONTROLLER_BRIDGE = "force_sdl_controller_bridge";
     private static final String KEY_ALLOCATED_MEMORY_MB = "allocated_memory_mb";
+    private static final String KEY_GAME_RESOLUTION_SCALE_PERCENT = "game_resolution_scale_percent";
+    private static final String KEY_FORCE_FULLSCREEN_MODE = "force_fullscreen_mode";
+    private static final String KEY_AVOID_ROUNDED_DISPLAY_CORNERS = "avoid_rounded_display_corners";
+
+    public static final int MIN_GAME_RESOLUTION_SCALE_PERCENT = 25;
+    public static final int MAX_GAME_RESOLUTION_SCALE_PERCENT = 200;
+    public static final int DEFAULT_GAME_RESOLUTION_SCALE_PERCENT = 100;
+
     private static final String DEFAULT_RENDERER_IDENTIFIER = "e7b90ed6-e518-4d4e-93dc-5c7133cd5b31";
     private static final String DEFAULT_VULKAN_DRIVER_NAME = "Default Mesa driver";
 
@@ -201,6 +209,53 @@ public final class LauncherPreferences {
 
     public static void setAllocatedMemoryMb(@NonNull Context context, int memoryMb) {
         prefs(context).edit().putInt(KEY_ALLOCATED_MEMORY_MB, memoryMb).apply();
+    }
+
+
+    /**
+     * Resolution scale applied to the game render buffer.
+     * 100 = native device view size, 25 = quarter-size render buffer, 200 = double-size render buffer.
+     */
+    public static int getGameResolutionScalePercent(@NonNull Context context) {
+        return clampGameResolutionScalePercent(
+                prefs(context).getInt(KEY_GAME_RESOLUTION_SCALE_PERCENT, DEFAULT_GAME_RESOLUTION_SCALE_PERCENT)
+        );
+    }
+
+    public static void setGameResolutionScalePercent(@NonNull Context context, int percent) {
+        prefs(context).edit()
+                .putInt(KEY_GAME_RESOLUTION_SCALE_PERCENT, clampGameResolutionScalePercent(percent))
+                .apply();
+    }
+
+    public static int clampGameResolutionScalePercent(int percent) {
+        if (percent < MIN_GAME_RESOLUTION_SCALE_PERCENT) return MIN_GAME_RESOLUTION_SCALE_PERCENT;
+        if (percent > MAX_GAME_RESOLUTION_SCALE_PERCENT) return MAX_GAME_RESOLUTION_SCALE_PERCENT;
+        return percent;
+    }
+
+    /**
+     * Keeps the existing JavaLauncher behavior by default: Minecraft launches in immersive fullscreen.
+     * Turning this off lets Android system bars/safe areas remain visible.
+     */
+    public static boolean isForceFullscreenMode(@NonNull Context context) {
+        return prefs(context).getBoolean(KEY_FORCE_FULLSCREEN_MODE, true);
+    }
+
+    public static void setForceFullscreenMode(@NonNull Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_FORCE_FULLSCREEN_MODE, enabled).apply();
+    }
+
+    /**
+     * Adds a small safe inset around the game container for devices where rounded display corners
+     * or cutouts hide the game edge. This does not change the physical screen shape.
+     */
+    public static boolean isAvoidRoundedDisplayCorners(@NonNull Context context) {
+        return prefs(context).getBoolean(KEY_AVOID_ROUNDED_DISPLAY_CORNERS, false);
+    }
+
+    public static void setAvoidRoundedDisplayCorners(@NonNull Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_AVOID_ROUNDED_DISPLAY_CORNERS, enabled).apply();
     }
 
     /**

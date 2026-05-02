@@ -12,6 +12,7 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.ViewConfiguration;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
@@ -43,17 +44,6 @@ final class TouchControlButtonView extends TextView {
     private static final int GLFW_KEY_D = 68;
     private static final int GLFW_KEY_LEFT_CONTROL = 341;
 
-    private static final int DIRECTION_NONE = -1;
-    private static final int DIRECTION_EAST = 0;
-    private static final int DIRECTION_NORTH_EAST = 1;
-    private static final int DIRECTION_NORTH = 2;
-    private static final int DIRECTION_NORTH_WEST = 3;
-    private static final int DIRECTION_WEST = 4;
-    private static final int DIRECTION_SOUTH_WEST = 5;
-    private static final int DIRECTION_SOUTH = 6;
-    private static final int DIRECTION_SOUTH_EAST = 7;
-    private static final int DIRECTION_FORWARD_LOCK = 8;
-
     private final TouchControlData data;
     private final Listener listener;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -74,7 +64,6 @@ final class TouchControlButtonView extends TextView {
     private float downRawY;
     private Runnable editLongPressRunnable;
 
-    private int joystickDirection = DIRECTION_NONE;
     private boolean joystickForwardLockDown;
     private boolean joystickWDown;
     private boolean joystickADown;
@@ -107,7 +96,14 @@ final class TouchControlButtonView extends TextView {
 
     void setEditMode(boolean editMode) {
         this.editMode = editMode;
+        refreshVisualState();
+    }
+
+    void refreshVisualState() {
+        setText(data.label);
         setBackground(makeBackground(editMode));
+        setAlpha(Math.max(0.15f, Math.min(1f, data.opacity)) * ControlsPreferences.getGlobalOpacity(getContext()));
+        invalidate();
     }
 
     @NonNull
@@ -118,14 +114,11 @@ final class TouchControlButtonView extends TextView {
     private void setupJoystickPaints() {
         joystickBasePaint.setColor(0x33000000);
         joystickBasePaint.setStyle(Paint.Style.FILL);
-
         joystickStrokePaint.setColor(0xAAFFFFFF);
         joystickStrokePaint.setStyle(Paint.Style.STROKE);
         joystickStrokePaint.setStrokeWidth(2f * getResources().getDisplayMetrics().density);
-
         joystickKnobPaint.setColor(0x99FFFFFF);
         joystickKnobPaint.setStyle(Paint.Style.FILL);
-
         joystickGuidePaint.setColor(0x66FFFFFF);
         joystickGuidePaint.setStyle(Paint.Style.STROKE);
         joystickGuidePaint.setStrokeWidth(1.25f * getResources().getDisplayMetrics().density);
@@ -148,9 +141,7 @@ final class TouchControlButtonView extends TextView {
 
     @Override
     protected void onDraw(@NonNull Canvas canvas) {
-        if (TouchControlActions.JOYSTICK.equals(data.action)) {
-            drawJoystick(canvas);
-        }
+        if (TouchControlActions.JOYSTICK.equals(data.action)) drawJoystick(canvas);
         super.onDraw(canvas);
     }
 
@@ -162,11 +153,9 @@ final class TouchControlButtonView extends TextView {
         float outerRadius = Math.min(width, height) * 0.48f;
         float guideRadius = Math.min(width, height) * 0.28f;
         float knobRadius = Math.max(10f * getResources().getDisplayMetrics().density, Math.min(width, height) * 0.18f);
-
         canvas.drawCircle(centerX, centerY, outerRadius, joystickBasePaint);
         canvas.drawCircle(centerX, centerY, outerRadius, joystickStrokePaint);
         canvas.drawCircle(centerX, centerY, guideRadius, joystickGuidePaint);
-
         float knobX = joystickKnobX > 0f ? joystickKnobX : centerX;
         float knobY = joystickKnobY > 0f ? joystickKnobY : centerY;
         canvas.drawCircle(knobX, knobY, knobRadius, joystickKnobPaint);
@@ -181,9 +170,7 @@ final class TouchControlButtonView extends TextView {
 
     @Override
     public boolean onTouchEvent(@NonNull MotionEvent event) {
-        if (editMode) {
-            return handleEditTouch(event);
-        }
+        if (editMode) return handleEditTouch(event);
         return handleGameTouch(event);
     }
 
@@ -200,35 +187,23 @@ final class TouchControlButtonView extends TextView {
                 downRawY = event.getRawY();
                 scheduleEditLongPress();
                 return true;
-
             case MotionEvent.ACTION_MOVE:
-                if (editLongPressTriggered) {
-                    return true;
-                }
-
+                if (editLongPressTriggered) return true;
                 float dx = event.getRawX() - downRawX;
                 float dy = event.getRawY() - downRawY;
                 if (!editDragging && ((dx * dx) + (dy * dy)) > (touchSlop * touchSlop)) {
                     editDragging = true;
                     cancelEditLongPress();
                 }
-
                 if (editDragging) {
-                    listener.onMoveRequested(
-                            this,
-                            data,
-                            Math.max(0f, event.getRawX() - touchOffsetX),
-                            Math.max(0f, event.getRawY() - touchOffsetY)
-                    );
+                    listener.onMoveRequested(this, data, Math.max(0f, event.getRawX() - touchOffsetX), Math.max(0f, event.getRawY() - touchOffsetY));
                 }
                 return true;
-
             case MotionEvent.ACTION_CANCEL:
                 cancelEditLongPress();
                 setPressed(false);
                 getParent().requestDisallowInterceptTouchEvent(false);
                 return true;
-
             case MotionEvent.ACTION_UP:
                 cancelEditLongPress();
                 setPressed(false);
@@ -238,7 +213,6 @@ final class TouchControlButtonView extends TextView {
                     listener.onChanged();
                 }
                 return true;
-
             default:
                 return true;
         }
@@ -262,10 +236,7 @@ final class TouchControlButtonView extends TextView {
     }
 
     private boolean handleGameTouch(@NonNull MotionEvent event) {
-        if (TouchControlActions.JOYSTICK.equals(data.action)) {
-            return handleJoystickTouch(event);
-        }
-
+        if (TouchControlActions.JOYSTICK.equals(data.action)) return handleJoystickTouch(event);
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 if (TouchControlActions.MENU.equals(data.action)) {
@@ -278,6 +249,13 @@ final class TouchControlButtonView extends TextView {
                     performClick();
                     return true;
                 }
+                if (TouchControlActions.VIRTUAL_MOUSE.equals(data.action)) {
+                    boolean enabled = !ControlsPreferences.isVirtualMouseEnabled(getContext());
+                    ControlsPreferences.setVirtualMouseEnabled(getContext(), enabled);
+                    Toast.makeText(getContext(), enabled ? "Virtual cursor shown" : "Virtual cursor hidden", Toast.LENGTH_SHORT).show();
+                    performClick();
+                    return true;
+                }
                 if (data.toggle) {
                     pressedState = !pressedState;
                     send(pressedState);
@@ -287,7 +265,6 @@ final class TouchControlButtonView extends TextView {
                 }
                 setActivated(pressedState);
                 return true;
-
             case MotionEvent.ACTION_CANCEL:
             case MotionEvent.ACTION_UP:
                 if (!data.toggle && pressedState) {
@@ -297,7 +274,6 @@ final class TouchControlButtonView extends TextView {
                 }
                 performClick();
                 return true;
-
             default:
                 return true;
         }
@@ -312,11 +288,9 @@ final class TouchControlButtonView extends TextView {
                 joystickCenterY = data.joystickAbsolute ? event.getY() : getHeight() / 2f;
                 updateJoystick(event.getX(), event.getY());
                 return true;
-
             case MotionEvent.ACTION_MOVE:
                 updateJoystick(event.getX(), event.getY());
                 return true;
-
             case MotionEvent.ACTION_CANCEL:
             case MotionEvent.ACTION_UP:
                 releaseJoystick();
@@ -324,7 +298,6 @@ final class TouchControlButtonView extends TextView {
                 setActivated(false);
                 performClick();
                 return true;
-
             default:
                 return true;
         }
@@ -333,37 +306,20 @@ final class TouchControlButtonView extends TextView {
     private void updateJoystick(float x, float y) {
         float dx = x - joystickCenterX;
         float dy = y - joystickCenterY;
-
         float size = Math.max(1f, Math.min(getWidth(), getHeight()));
         float maxKnobTravel = Math.max(1f, size * 0.43f);
         float distance = (float) Math.sqrt(dx * dx + dy * dy);
-
         float unitX = distance > 0f ? dx / distance : 0f;
         float unitY = distance > 0f ? dy / distance : 0f;
         float knobDistance = Math.min(distance, maxKnobTravel);
         float clampedDx = unitX * knobDistance;
         float clampedDy = unitY * knobDistance;
-
         joystickKnobX = joystickCenterX + clampedDx;
         joystickKnobY = joystickCenterY + clampedDy;
         invalidate();
-
-        // The old joystick waited until the finger moved roughly one third of the whole
-        // stick before sending WASD. On a resized 150% joystick that feels like the player
-        // barely moves. Use a smaller deadzone based on the actual knob travel instead,
-        // and keep each key held until its axis leaves the deadzone.
         float deadzone = Math.max(touchSlop, maxKnobTravel * 0.16f);
-
-        boolean forward = clampedDy < -deadzone;
-        boolean backward = clampedDy > deadzone;
-        boolean left = clampedDx < -deadzone;
-        boolean right = clampedDx > deadzone;
-
-        setJoystickKeyStates(forward, left, backward, right);
-
-        boolean shouldForwardLock = data.joystickForwardLock
-                && forward
-                && distance > (maxKnobTravel * 0.88f);
+        setJoystickKeyStates(clampedDy < -deadzone, clampedDx < -deadzone, clampedDy > deadzone, clampedDx > deadzone);
+        boolean shouldForwardLock = data.joystickForwardLock && clampedDy < -deadzone && distance > (maxKnobTravel * 0.88f);
         if (shouldForwardLock != joystickForwardLockDown) {
             joystickForwardLockDown = shouldForwardLock;
             sendKey(GLFW_KEY_LEFT_CONTROL, shouldForwardLock);
@@ -371,27 +327,14 @@ final class TouchControlButtonView extends TextView {
     }
 
     private void setJoystickKeyStates(boolean wDown, boolean aDown, boolean sDown, boolean dDown) {
-        if (joystickWDown != wDown) {
-            joystickWDown = wDown;
-            sendKey(GLFW_KEY_W, wDown);
-        }
-        if (joystickADown != aDown) {
-            joystickADown = aDown;
-            sendKey(GLFW_KEY_A, aDown);
-        }
-        if (joystickSDown != sDown) {
-            joystickSDown = sDown;
-            sendKey(GLFW_KEY_S, sDown);
-        }
-        if (joystickDDown != dDown) {
-            joystickDDown = dDown;
-            sendKey(GLFW_KEY_D, dDown);
-        }
+        if (joystickWDown != wDown) { joystickWDown = wDown; sendKey(GLFW_KEY_W, wDown); }
+        if (joystickADown != aDown) { joystickADown = aDown; sendKey(GLFW_KEY_A, aDown); }
+        if (joystickSDown != sDown) { joystickSDown = sDown; sendKey(GLFW_KEY_S, sDown); }
+        if (joystickDDown != dDown) { joystickDDown = dDown; sendKey(GLFW_KEY_D, dDown); }
     }
 
     private void releaseJoystick() {
         setJoystickKeyStates(false, false, false, false);
-        joystickDirection = DIRECTION_NONE;
         resetJoystickKnob();
         if (joystickForwardLockDown) {
             joystickForwardLockDown = false;
@@ -421,61 +364,19 @@ final class TouchControlButtonView extends TextView {
                 }
                 return;
             }
-
             if (TouchControlActions.MOUSE.equals(data.action)) {
                 CallbackBridge.sendMouseButton(data.mouseButton, down);
                 return;
             }
-
             if (TouchControlActions.SCROLL.equals(data.action)) {
                 if (!down) CallbackBridge.sendScroll(0d, data.scrollY);
                 return;
             }
-
             if (TouchControlActions.KEYBOARD.equals(data.action)) {
                 if (down) TouchKeyboardHelper.showKeyboard(this);
             }
         } catch (Throwable throwable) {
             Logging.e(TAG, "Unable to send touch control input", throwable);
-        }
-    }
-
-    private void sendDirectional(int direction, boolean isDown) {
-        switch (direction) {
-            case DIRECTION_NORTH:
-                sendKey(GLFW_KEY_W, isDown);
-                break;
-            case DIRECTION_NORTH_EAST:
-                sendKey(GLFW_KEY_W, isDown);
-                sendKey(GLFW_KEY_D, isDown);
-                break;
-            case DIRECTION_EAST:
-                sendKey(GLFW_KEY_D, isDown);
-                break;
-            case DIRECTION_SOUTH_EAST:
-                sendKey(GLFW_KEY_D, isDown);
-                sendKey(GLFW_KEY_S, isDown);
-                break;
-            case DIRECTION_SOUTH:
-                sendKey(GLFW_KEY_S, isDown);
-                break;
-            case DIRECTION_SOUTH_WEST:
-                sendKey(GLFW_KEY_S, isDown);
-                sendKey(GLFW_KEY_A, isDown);
-                break;
-            case DIRECTION_WEST:
-                sendKey(GLFW_KEY_A, isDown);
-                break;
-            case DIRECTION_NORTH_WEST:
-                sendKey(GLFW_KEY_W, isDown);
-                sendKey(GLFW_KEY_A, isDown);
-                break;
-            case DIRECTION_FORWARD_LOCK:
-                sendKey(GLFW_KEY_LEFT_CONTROL, isDown);
-                break;
-            case DIRECTION_NONE:
-            default:
-                break;
         }
     }
 
@@ -489,9 +390,12 @@ final class TouchControlButtonView extends TextView {
         GradientDrawable drawable = new GradientDrawable();
         boolean joystick = TouchControlActions.JOYSTICK.equals(data.action);
         drawable.setShape(joystick ? GradientDrawable.OVAL : GradientDrawable.RECTANGLE);
-        drawable.setColor(editing ? 0x663F51B5 : 0x66000000);
-        drawable.setStroke(editing ? 3 : 2, editing ? 0xFFFFFFFF : 0x99FFFFFF);
-        drawable.setCornerRadius(joystick ? 999f : 16f * getResources().getDisplayMetrics().density);
+        drawable.setColor(editing ? 0x663F51B5 : data.backgroundColor);
+        int strokePx = Math.max(editing ? 3 : 0, Math.round(Math.max(0f, data.strokeWidth) * getResources().getDisplayMetrics().density));
+        int strokeColor = editing ? 0xFFFFFFFF : data.strokeColor;
+        if (strokePx > 0) drawable.setStroke(strokePx, strokeColor);
+        float radius = joystick ? 9999f : Math.max(0f, data.cornerRadius) * getResources().getDisplayMetrics().density;
+        drawable.setCornerRadius(radius);
         return drawable;
     }
 

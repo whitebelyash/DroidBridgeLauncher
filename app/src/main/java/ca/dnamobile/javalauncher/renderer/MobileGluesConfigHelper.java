@@ -1,17 +1,12 @@
 package ca.dnamobile.javalauncher.renderer;
 
-import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.net.Uri;
-import android.os.Build;
 import android.os.Environment;
-import android.provider.Settings;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.content.ContextCompat;
 
 import org.json.JSONObject;
 
@@ -21,19 +16,35 @@ import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.Locale;
 
+/**
+ * MobileGlues optional configuration helper.
+ *
+ * Important for Google Play builds:
+ * - JavaLauncher must never request MANAGE_EXTERNAL_STORAGE / All files access.
+ * - MobileGlues does not require JavaLauncher to read /sdcard/MG/config.json to launch.
+ * - If the config is unavailable, MobileGlues falls back to its defaults or the user can
+ *   open the MobileGlues plugin app to edit/save plugin-side settings.
+ */
 public final class MobileGluesConfigHelper {
     private static final String CONFIG_DIR_NAME = "MG";
     private static final String CONFIG_FILE_NAME = "config.json";
+
+    private static final String[] MOBILE_GLUES_PACKAGES = new String[]{
+            "com.fcl.plugin.mobileglues",
+            "com.fcl.plugin.renderer.mobileglues",
+            "com.mio.plugin.renderer.mobileglues"
+    };
 
     private MobileGluesConfigHelper() {
     }
 
     public static boolean isMobileGluesRenderer(@Nullable RendererInterface renderer) {
         if (renderer == null) return false;
-        String combined = (renderer.getUniqueIdentifier() + " "
-                + renderer.getRendererName() + " "
-                + renderer.getRendererId() + " "
-                + renderer.getRendererLibrary()).toLowerCase(Locale.ROOT);
+        String combined = (safe(renderer.getUniqueIdentifier()) + " "
+                + safe(renderer.getRendererName()) + " "
+                + safe(renderer.getRendererId()) + " "
+                + safe(renderer.getRendererLibrary()))
+                .toLowerCase(Locale.ROOT);
         return combined.contains("mobileglues") || combined.contains("mobile glues");
     }
 
@@ -47,37 +58,63 @@ public final class MobileGluesConfigHelper {
         return new File(getConfigDirectory(), CONFIG_FILE_NAME);
     }
 
+    /**
+     * Compatibility method kept so older call sites keep compiling.
+     *
+     * This intentionally returns true. MobileGlues can launch without JavaLauncher having
+     * broad storage permission, and Google Play builds should never show an All files access
+     * prompt for this renderer.
+     */
     public static boolean hasStorageAccess(@NonNull Context context) {
-        File configFile = getConfigFile();
-        if (configFile.isFile() && configFile.canRead()) return true;
-
-        if (Build.VERSION.SDK_INT >= 30) {
-            return Environment.isExternalStorageManager();
-        }
-
-        return ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE)
-                == PackageManager.PERMISSION_GRANTED;
+        return true;
     }
 
+    /**
+     * New explicit name for pre-launch checks. Always false for MobileGlues.
+     */
+    public static boolean shouldShowStorageAccessPrompt(@NonNull Context context,
+                                                        @Nullable RendererInterface renderer) {
+        return false;
+    }
+
+    public static boolean canReadConfigFile() {
+        File configFile = getConfigFile();
+        return configFile.isFile() && configFile.canRead();
+    }
+
+    /**
+     * Compatibility method kept so older call sites keep compiling.
+     *
+     * This no longer returns ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION or
+     * ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION. If a caller still invokes this, it opens
+     * the MobileGlues plugin app instead of Android's All files access screen.
+     */
     @NonNull
     public static Intent buildStorageAccessIntent(@NonNull Context context) {
-        if (Build.VERSION.SDK_INT >= 30) {
+        Intent pluginIntent = buildOpenPluginIntent(context);
+        if (pluginIntent != null) return pluginIntent;
+
+        Intent fallback = new Intent(Intent.ACTION_MAIN);
+        fallback.addCategory(Intent.CATEGORY_LAUNCHER);
+        fallback.setPackage(MOBILE_GLUES_PACKAGES[0]);
+        fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        return fallback;
+    }
+
+    @Nullable
+    public static Intent buildOpenPluginIntent(@NonNull Context context) {
+        PackageManager packageManager = context.getPackageManager();
+        for (String packageName : MOBILE_GLUES_PACKAGES) {
             try {
-                Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
-                intent.setData(Uri.parse("package:" + context.getPackageName()));
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                return intent;
+                Intent intent = packageManager.getLaunchIntentForPackage(packageName);
+                if (intent != null) {
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    return intent;
+                }
             } catch (Throwable ignored) {
-                Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                return intent;
             }
         }
-
-        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-        intent.setData(Uri.parse("package:" + context.getPackageName()));
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        return intent;
+        return null;
     }
 
     @NonNull
@@ -87,14 +124,11 @@ public final class MobileGluesConfigHelper {
         }
 
         File configFile = getConfigFile();
-        if (!hasStorageAccess(context)) {
+        if (!canReadConfigFile()) {
             return "MobileGlues config path: " + configFile.getAbsolutePath()
-                    + "\nJavaLauncher does not have storage access yet, so MobileGlues may fall back to default settings.";
-        }
-
-        if (!configFile.isFile()) {
-            return "MobileGlues config path: " + configFile.getAbsolutePath()
-                    + "\nNo config.json was found yet. Open the MobileGlues app, save its settings, then refresh here.";
+                    + "\nJavaLauncher does not require All files access for MobileGlues."
+                    + "\nIf this config is unavailable, MobileGlues can still launch with defaults."
+                    + "\nOpen the MobileGlues plugin app to change MobileGlues settings.";
         }
 
         try {
@@ -128,11 +162,15 @@ public final class MobileGluesConfigHelper {
             return out.toString().trim();
         } catch (Throwable throwable) {
             return "MobileGlues config path: " + configFile.getAbsolutePath()
-                    + "\nThe config exists, but JavaLauncher could not parse it: " + throwable.getMessage();
+                    + "\nThe config exists, but JavaLauncher could not parse it: " + throwable.getMessage()
+                    + "\nMobileGlues can still launch with defaults.";
         }
     }
 
-    private static void appendKnown(@NonNull StringBuilder out, @NonNull JSONObject json, @NonNull String key, @NonNull String label) {
+    private static void appendKnown(@NonNull StringBuilder out,
+                                    @NonNull JSONObject json,
+                                    @NonNull String key,
+                                    @NonNull String label) {
         if (!json.has(key)) return;
         out.append("• ").append(label).append(" = ").append(json.opt(key)).append('\n');
     }
@@ -165,5 +203,10 @@ public final class MobileGluesConfigHelper {
             }
             return new String(buffer, 0, offset, StandardCharsets.UTF_8);
         }
+    }
+
+    @NonNull
+    private static String safe(@Nullable String value) {
+        return value == null ? "" : value;
     }
 }

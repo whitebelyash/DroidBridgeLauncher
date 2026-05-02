@@ -18,6 +18,7 @@ public final class ControlsPreferences {
     private static final String KEY_EDIT_GRID = "edit_grid";
     private static final String KEY_SNAP_CONTROLS = "snap_controls";
     private static final String KEY_SIZE_PREVIEW_PERCENT = "size_preview_percent";
+    private static final String KEY_VIRTUAL_MOUSE_ENABLED = "virtual_mouse_enabled";
 
     private static final String KEY_HOTBAR_HITBOX_DEBUG = "hotbar_hitbox_debug";
     private static final String KEY_HOTBAR_GUI_SCALE_OVERRIDE = "hotbar_gui_scale_override";
@@ -66,11 +67,11 @@ public final class ControlsPreferences {
     }
 
     public static float getGlobalOpacity(@NonNull Context context) {
-        return Math.max(0.15f, Math.min(1f, prefs(context).getFloat(KEY_OPACITY, 1f)));
+        return clamp(prefs(context).getFloat(KEY_OPACITY, 1f), 0.15f, 1f);
     }
 
     public static void setGlobalOpacity(@NonNull Context context, float value) {
-        prefs(context).edit().putFloat(KEY_OPACITY, Math.max(0.15f, Math.min(1f, value))).apply();
+        prefs(context).edit().putFloat(KEY_OPACITY, clamp(value, 0.15f, 1f)).apply();
     }
 
     public static boolean isEditGridEnabled(@NonNull Context context) {
@@ -95,6 +96,14 @@ public final class ControlsPreferences {
 
     public static void setSizePreviewPercentEnabled(@NonNull Context context, boolean enabled) {
         prefs(context).edit().putBoolean(KEY_SIZE_PREVIEW_PERCENT, enabled).apply();
+    }
+
+    public static boolean isVirtualMouseEnabled(@NonNull Context context) {
+        return prefs(context).getBoolean(KEY_VIRTUAL_MOUSE_ENABLED, false);
+    }
+
+    public static void setVirtualMouseEnabled(@NonNull Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_VIRTUAL_MOUSE_ENABLED, enabled).apply();
     }
 
     public static boolean isHotbarHitboxDebugEnabled(@NonNull Context context) {
@@ -172,5 +181,4 @@ public final class ControlsPreferences {
     private static float clamp(float value, float min, float max) {
         return Math.max(min, Math.min(max, value));
     }
-
 }

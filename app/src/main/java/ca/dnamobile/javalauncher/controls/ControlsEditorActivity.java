@@ -11,6 +11,7 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
@@ -70,19 +71,13 @@ public final class ControlsEditorActivity extends AppCompatActivity {
         menuButton.setTextSize(22f);
         menuButton.setAllCaps(false);
         menuButton.setAlpha(0.76f);
+        menuButton.setBackground(makeGearBackground());
         menuButton.setOnTouchListener(this::handleMenuButtonTouch);
-        FrameLayout.LayoutParams menuParams = new FrameLayout.LayoutParams(
-                dp(52),
-                dp(52),
-                Gravity.TOP | Gravity.START
-        );
-        root.addView(menuButton, menuParams);
+        root.addView(menuButton, new FrameLayout.LayoutParams(dp(52), dp(52), Gravity.TOP | Gravity.START));
 
         editorPanel.bringToFront();
         menuButton.bringToFront();
 
-        // Wait until the overlay is attached and measured before loading/rebuilding.
-        // Loading before addView() left the first editor screen empty until Add Key/Add Mouse was pressed.
         root.post(() -> {
             restoreMenuButtonPosition();
             if (overlay != null) {
@@ -100,24 +95,32 @@ public final class ControlsEditorActivity extends AppCompatActivity {
     }
 
     private void buildEditorPanel() {
+        TextView header = new TextView(this);
+        header.setText("Touch editor");
+        header.setTextSize(14f);
+        header.setTextColor(0xFFE0E0E0);
+        header.setGravity(Gravity.CENTER);
+        header.setPadding(0, 0, 0, dp(6));
+        editorPanel.addView(header, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
         LinearLayout rowOne = panelRow();
         LinearLayout rowTwo = panelRow();
         LinearLayout rowThree = panelRow();
 
         Button addKey = panelButton("Add Key");
         addKey.setOnClickListener(view -> {
-            overlay.addControl(TouchControlData.key("Key", 32, dp(120), dp(120), 72, 52));
-            Toast.makeText(this, "Long-press the new button to edit key code.", Toast.LENGTH_SHORT).show();
+            overlay.addControl(TouchControlData.key("Key", 32, 120, 120, 72, 52));
+            Toast.makeText(this, "Long-press the new button to edit it.", Toast.LENGTH_SHORT).show();
         });
         rowOne.addView(addKey, panelButtonParams());
 
         Button addMouse = panelButton("Add Mouse");
-        addMouse.setOnClickListener(view -> overlay.addControl(TouchControlData.mouse("Mouse", 0, dp(220), dp(120))));
+        addMouse.setOnClickListener(view -> overlay.addControl(TouchControlData.mouse("Mouse", 0, 220, 120)));
         rowOne.addView(addMouse, panelButtonParams());
 
         Button addJoystick = panelButton("Add Stick");
         addJoystick.setOnClickListener(view -> {
-            overlay.addControl(TouchControlData.joystick("Joystick", dp(48), dp(330), 128, 128));
+            overlay.addControl(TouchControlData.joystick("Joystick", 48, 330, 128, 128));
             Toast.makeText(this, "Added joystick. Long-press it to resize or move it.", Toast.LENGTH_SHORT).show();
         });
         rowOne.addView(addJoystick, panelButtonParams());
@@ -132,6 +135,16 @@ public final class ControlsEditorActivity extends AppCompatActivity {
         });
         rowTwo.addView(snap, panelButtonParams());
 
+        Button mouseToggle = panelButton("");
+        updateMouseButtonText(mouseToggle);
+        mouseToggle.setOnClickListener(view -> {
+            boolean enabled = !ControlsPreferences.isVirtualMouseEnabled(this);
+            ControlsPreferences.setVirtualMouseEnabled(this, enabled);
+            updateMouseButtonText(mouseToggle);
+            Toast.makeText(this, enabled ? "Virtual cursor shown." : "Virtual cursor hidden.", Toast.LENGTH_SHORT).show();
+        });
+        rowTwo.addView(mouseToggle, panelButtonParams());
+
         Button save = panelButton("Save");
         save.setOnClickListener(view -> {
             overlay.saveLayout();
@@ -141,11 +154,11 @@ public final class ControlsEditorActivity extends AppCompatActivity {
 
         Button hide = panelButton("Hide panel");
         hide.setOnClickListener(view -> setPanelVisible(false));
-        rowTwo.addView(hide, panelButtonParams());
+        rowThree.addView(hide, panelButtonParams());
 
-        Button close = panelButton("Close editor");
+        Button close = panelButton("Close");
         close.setOnClickListener(view -> finish());
-        rowThree.addView(close, panelButtonParamsWide());
+        rowThree.addView(close, panelButtonParams());
 
         editorPanel.addView(rowOne);
         editorPanel.addView(rowTwo);
@@ -162,7 +175,6 @@ public final class ControlsEditorActivity extends AppCompatActivity {
                 menuDragging = false;
                 view.getParent().requestDisallowInterceptTouchEvent(true);
                 return true;
-
             case MotionEvent.ACTION_MOVE:
                 float dx = event.getRawX() - menuDownRawX;
                 float dy = event.getRawY() - menuDownRawY;
@@ -170,23 +182,18 @@ public final class ControlsEditorActivity extends AppCompatActivity {
                     menuDragging = true;
                     setPanelVisible(false);
                 }
-                if (menuDragging) {
-                    moveMenuButton(menuStartX + dx, menuStartY + dy);
-                }
+                if (menuDragging) moveMenuButton(menuStartX + dx, menuStartY + dy);
                 return true;
-
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 view.getParent().requestDisallowInterceptTouchEvent(false);
-                if (menuDragging) {
-                    saveMenuButtonPosition();
-                } else if (event.getActionMasked() == MotionEvent.ACTION_UP) {
+                if (menuDragging) saveMenuButtonPosition();
+                else if (event.getActionMasked() == MotionEvent.ACTION_UP) {
                     view.performClick();
                     setPanelVisible(editorPanel.getVisibility() != View.VISIBLE);
                 }
                 menuDragging = false;
                 return true;
-
             default:
                 return true;
         }
@@ -195,23 +202,21 @@ public final class ControlsEditorActivity extends AppCompatActivity {
     private void setPanelVisible(boolean visible) {
         editorPanel.setVisibility(visible ? View.VISIBLE : View.GONE);
         menuButton.setAlpha(visible ? 1.0f : 0.76f);
-        if (visible) {
-            editorPanel.post(this::positionPanelNearMenuButton);
-        }
+        if (visible) editorPanel.post(this::positionPanelNearMenuButton);
     }
 
     private void restoreMenuButtonPosition() {
         SharedPreferences prefs = getSharedPreferences(UI_PREFS, MODE_PRIVATE);
-        float defaultX = dp(10);
-        float defaultY = Math.max(dp(10), root.getHeight() - dp(62));
-        float x = prefs.getFloat(KEY_MENU_X, defaultX);
-        float y = prefs.getFloat(KEY_MENU_Y, defaultY);
+        float defaultX = Math.max(dp(4), (root.getWidth() - menuButton.getWidth()) / 2f);
+        float defaultY = Math.max(dp(4), (root.getHeight() - menuButton.getHeight()) / 2f);
+        boolean hasSavedPosition = prefs.contains(KEY_MENU_X) && prefs.contains(KEY_MENU_Y);
+        float x = hasSavedPosition ? prefs.getFloat(KEY_MENU_X, defaultX) : defaultX;
+        float y = hasSavedPosition ? prefs.getFloat(KEY_MENU_Y, defaultY) : defaultY;
         moveMenuButton(x, y);
     }
 
     private void saveMenuButtonPosition() {
-        getSharedPreferences(UI_PREFS, MODE_PRIVATE)
-                .edit()
+        getSharedPreferences(UI_PREFS, MODE_PRIVATE).edit()
                 .putFloat(KEY_MENU_X, menuButton.getX())
                 .putFloat(KEY_MENU_Y, menuButton.getY())
                 .apply();
@@ -222,39 +227,22 @@ public final class ControlsEditorActivity extends AppCompatActivity {
         float maxY = Math.max(0f, root.getHeight() - menuButton.getHeight() - dp(4));
         menuButton.setX(clamp(x, dp(4), maxX));
         menuButton.setY(clamp(y, dp(4), maxY));
-        if (editorPanel.getVisibility() == View.VISIBLE) {
-            positionPanelNearMenuButton();
-        }
+        if (editorPanel.getVisibility() == View.VISIBLE) positionPanelNearMenuButton();
     }
 
     private void positionPanelNearMenuButton() {
         if (root.getWidth() <= 0 || root.getHeight() <= 0) return;
-
-        editorPanel.measure(
-                View.MeasureSpec.makeMeasureSpec(root.getWidth(), View.MeasureSpec.AT_MOST),
-                View.MeasureSpec.makeMeasureSpec(root.getHeight(), View.MeasureSpec.AT_MOST)
-        );
-
+        editorPanel.measure(View.MeasureSpec.makeMeasureSpec(root.getWidth(), View.MeasureSpec.AT_MOST), View.MeasureSpec.makeMeasureSpec(root.getHeight(), View.MeasureSpec.AT_MOST));
         int panelWidth = Math.max(1, editorPanel.getMeasuredWidth());
         int panelHeight = Math.max(1, editorPanel.getMeasuredHeight());
         float spacing = dp(8);
-
-        boolean openRight = menuButton.getX() + (menuButton.getWidth() / 2f) < (root.getWidth() / 2f);
-        float x = openRight
-                ? menuButton.getX() + menuButton.getWidth() + spacing
-                : menuButton.getX() - panelWidth - spacing;
+        boolean openRight = menuButton.getX() + menuButton.getWidth() / 2f < root.getWidth() / 2f;
+        float x = openRight ? menuButton.getX() + menuButton.getWidth() + spacing : menuButton.getX() - panelWidth - spacing;
         float y = menuButton.getY();
-
-        // If there is not enough room on either side, park the panel above/below the gear.
         if (x < dp(4) || x + panelWidth > root.getWidth() - dp(4)) {
             x = clamp(menuButton.getX(), dp(4), Math.max(dp(4), root.getWidth() - panelWidth - dp(4)));
-            if (menuButton.getY() > root.getHeight() / 2f) {
-                y = menuButton.getY() - panelHeight - spacing;
-            } else {
-                y = menuButton.getY() + menuButton.getHeight() + spacing;
-            }
+            y = menuButton.getY() > root.getHeight() / 2f ? menuButton.getY() - panelHeight - spacing : menuButton.getY() + menuButton.getHeight() + spacing;
         }
-
         editorPanel.setX(clamp(x, dp(4), Math.max(dp(4), root.getWidth() - panelWidth - dp(4))));
         editorPanel.setY(clamp(y, dp(4), Math.max(dp(4), root.getHeight() - panelHeight - dp(4))));
     }
@@ -283,12 +271,6 @@ public final class ControlsEditorActivity extends AppCompatActivity {
         return params;
     }
 
-    private LinearLayout.LayoutParams panelButtonParamsWide() {
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(230), dp(42));
-        params.setMargins(dp(3), 0, dp(3), 0);
-        return params;
-    }
-
     private GradientDrawable makePanelBackground() {
         GradientDrawable drawable = new GradientDrawable();
         drawable.setColor(0xDD111111);
@@ -297,15 +279,24 @@ public final class ControlsEditorActivity extends AppCompatActivity {
         return drawable;
     }
 
+    private GradientDrawable makeGearBackground() {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(0xDD202124);
+        drawable.setShape(GradientDrawable.OVAL);
+        drawable.setStroke(dp(1), 0x66FFFFFF);
+        return drawable;
+    }
+
     private void enableImmersiveSafely() {
-        try {
-            FullscreenUtils.enableImmersive(this);
-        } catch (Throwable ignored) {
-        }
+        try { FullscreenUtils.enableImmersive(this); } catch (Throwable ignored) { }
     }
 
     private void updateSnapButtonText(Button button) {
         button.setText(ControlsPreferences.isSnapControlsEnabled(this) ? "Snap: ON" : "Snap: OFF");
+    }
+
+    private void updateMouseButtonText(Button button) {
+        button.setText(ControlsPreferences.isVirtualMouseEnabled(this) ? "Cursor: ON" : "Cursor: OFF");
     }
 
     private int dp(float value) {

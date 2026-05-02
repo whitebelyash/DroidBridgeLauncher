@@ -3,6 +3,8 @@ package ca.dnamobile.javalauncher.controls;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -44,44 +46,41 @@ public final class ControlsActivity extends AppCompatActivity {
         root.setOrientation(LinearLayout.VERTICAL);
         int padding = dp(16);
         root.setPadding(padding, padding, padding, padding);
+        root.setBackgroundColor(0xFF101114);
         setContentView(root);
 
         TextView title = new TextView(this);
         title.setText("Touch Controls");
+        title.setTextColor(Color.WHITE);
         title.setTextSize(24f);
         title.setGravity(Gravity.START);
-        root.addView(title, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
+        root.addView(title, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         summary = new TextView(this);
         summary.setTextSize(14f);
+        summary.setTextColor(0xFFBDBDBD);
+        summary.setPadding(0, dp(4), 0, dp(10));
         root.addView(summary);
 
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
-        root.addView(actions, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
+        actions.setPadding(0, 0, 0, dp(10));
+        root.addView(actions, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        Button importButton = new Button(this);
-        importButton.setText("Import");
+        Button importButton = actionButton("Import");
         importButton.setOnClickListener(view -> openImportPicker());
         actions.addView(importButton, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        Button editButton = new Button(this);
-        editButton.setText("Edit Current");
+        Button editButton = actionButton("Edit Current");
         editButton.setOnClickListener(view -> startActivity(new Intent(this, ControlsEditorActivity.class)));
         actions.addView(editButton, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        Button closeButton = new Button(this);
-        closeButton.setText("Close");
+        Button closeButton = actionButton("Close");
         closeButton.setOnClickListener(view -> finish());
         actions.addView(closeButton, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
         listView = new ListView(this);
+        listView.setBackground(makePanelBackground());
         adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, new ArrayList<>());
         listView.setAdapter(adapter);
         listView.setOnItemClickListener((parent, view, position, id) -> selectLayout(position));
@@ -89,11 +88,7 @@ public final class ControlsActivity extends AppCompatActivity {
             showLayoutOptions(position);
             return true;
         });
-        root.addView(listView, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-        ));
+        root.addView(listView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
         refreshList();
         root.post(this::enableImmersiveSafely);
@@ -102,26 +97,19 @@ public final class ControlsActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (listView != null) {
-            listView.post(this::enableImmersiveSafely);
-        } else {
-            enableImmersiveSafely();
-        }
+        if (listView != null) listView.post(this::enableImmersiveSafely);
+        else enableImmersiveSafely();
         refreshList();
     }
 
     private void enableImmersiveSafely() {
-        try {
-            FullscreenUtils.enableImmersive(this);
-        } catch (Throwable throwable) {
-            Logging.e("ControlsActivity", "Unable to enable immersive mode", throwable);
-        }
+        try { FullscreenUtils.enableImmersive(this); }
+        catch (Throwable throwable) { Logging.e("ControlsActivity", "Unable to enable immersive mode", throwable); }
     }
 
     private void refreshList() {
         layoutFiles.clear();
         layoutFiles.addAll(TouchControlsStore.listLayouts(this));
-
         ArrayList<String> names = new ArrayList<>();
         String selected = ControlsPreferences.getSelectedLayoutPath(this);
         for (File file : layoutFiles) {
@@ -147,9 +135,9 @@ public final class ControlsActivity extends AppCompatActivity {
         if (position < 0 || position >= layoutFiles.size()) return;
         File file = layoutFiles.get(position);
         String[] options = new String[]{"Use this layout", "Edit", "Export JSON", "Delete"};
-        new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(file.getName())
-                .setItems(options, (dialog, which) -> {
+                .setItems(options, (d, which) -> {
                     if (which == 0) selectLayout(position);
                     if (which == 1) {
                         ControlsPreferences.setSelectedLayoutPath(this, file.getAbsolutePath());
@@ -158,7 +146,11 @@ public final class ControlsActivity extends AppCompatActivity {
                     if (which == 2) openExportPicker(file);
                     if (which == 3) confirmDelete(file);
                 })
-                .show();
+                .create();
+        dialog.setOnShowListener(d -> {
+            if (dialog.getWindow() != null) dialog.getWindow().setBackgroundDrawable(makeDialogBackground());
+        });
+        dialog.show();
     }
 
     private void confirmDelete(@NonNull File file) {
@@ -186,11 +178,8 @@ public final class ControlsActivity extends AppCompatActivity {
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType("application/json");
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-        try {
-            startActivityForResult(intent, REQUEST_IMPORT_CONTROLS);
-        } catch (ActivityNotFoundException throwable) {
-            Toast.makeText(this, "No file picker found.", Toast.LENGTH_LONG).show();
-        }
+        try { startActivityForResult(intent, REQUEST_IMPORT_CONTROLS); }
+        catch (ActivityNotFoundException throwable) { Toast.makeText(this, "No file picker found.", Toast.LENGTH_LONG).show(); }
     }
 
     private void openExportPicker(@NonNull File file) {
@@ -200,9 +189,8 @@ public final class ControlsActivity extends AppCompatActivity {
         intent.setType("application/json");
         intent.putExtra(Intent.EXTRA_TITLE, safeExportName(file));
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-        try {
-            startActivityForResult(intent, REQUEST_EXPORT_CONTROLS);
-        } catch (ActivityNotFoundException throwable) {
+        try { startActivityForResult(intent, REQUEST_EXPORT_CONTROLS); }
+        catch (ActivityNotFoundException throwable) {
             pendingExportFile = null;
             Toast.makeText(this, "No file picker found.", Toast.LENGTH_LONG).show();
         }
@@ -212,26 +200,14 @@ public final class ControlsActivity extends AppCompatActivity {
     @SuppressWarnings("deprecation")
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-
-        if (requestCode == REQUEST_IMPORT_CONTROLS) {
-            handleImportResult(resultCode, data);
-            return;
-        }
-
-        if (requestCode == REQUEST_EXPORT_CONTROLS) {
-            handleExportResult(resultCode, data);
-        }
+        if (requestCode == REQUEST_IMPORT_CONTROLS) { handleImportResult(resultCode, data); return; }
+        if (requestCode == REQUEST_EXPORT_CONTROLS) handleExportResult(resultCode, data);
     }
 
     private void handleImportResult(int resultCode, @Nullable Intent data) {
-        if (resultCode != RESULT_OK || data == null || data.getData() == null) {
-            return;
-        }
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
         Uri uri = data.getData();
-        try {
-            getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        } catch (Throwable ignored) {
-        }
+        try { getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); } catch (Throwable ignored) { }
         try {
             File imported = TouchControlsStore.saveImportedLayout(this, uri);
             Toast.makeText(this, "Imported " + imported.getName(), Toast.LENGTH_SHORT).show();
@@ -245,11 +221,7 @@ public final class ControlsActivity extends AppCompatActivity {
     private void handleExportResult(int resultCode, @Nullable Intent data) {
         File source = pendingExportFile;
         pendingExportFile = null;
-
-        if (resultCode != RESULT_OK || data == null || data.getData() == null || source == null) {
-            return;
-        }
-
+        if (resultCode != RESULT_OK || data == null || data.getData() == null || source == null) return;
         Uri uri = data.getData();
         try (OutputStream output = getContentResolver().openOutputStream(uri, "wt")) {
             if (output == null) throw new IllegalStateException("Unable to open export destination.");
@@ -264,11 +236,35 @@ public final class ControlsActivity extends AppCompatActivity {
     }
 
     @NonNull
+    private Button actionButton(@NonNull String text) {
+        Button button = new Button(this);
+        button.setText(text);
+        button.setAllCaps(false);
+        return button;
+    }
+
+    @NonNull
+    private GradientDrawable makePanelBackground() {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(0xEE1B1C20);
+        drawable.setCornerRadius(dp(18));
+        drawable.setStroke(Math.max(1, dp(1)), 0x33FFFFFF);
+        return drawable;
+    }
+
+    @NonNull
+    private GradientDrawable makeDialogBackground() {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(0xEE202124);
+        drawable.setCornerRadius(dp(22));
+        drawable.setStroke(Math.max(1, dp(1)), 0x44FFFFFF);
+        return drawable;
+    }
+
+    @NonNull
     private static String safeExportName(@NonNull File file) {
         String name = file.getName();
-        if (!name.toLowerCase().endsWith(".json")) {
-            name += ".json";
-        }
+        if (!name.toLowerCase().endsWith(".json")) name += ".json";
         return name.replaceAll("[^A-Za-z0-9._-]+", "_");
     }
 

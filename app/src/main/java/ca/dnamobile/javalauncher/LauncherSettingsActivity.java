@@ -653,6 +653,112 @@ public final class LauncherSettingsActivity extends AppCompatActivity {
             LauncherPreferences.setUseNativeSurfaceView(this, isChecked);
             updateRenderSurfaceSwitchText(isChecked);
         });
+
+        setupGameDisplaySettings();
+    }
+
+    private void setupGameDisplaySettings() {
+        int currentScale = LauncherPreferences.getGameResolutionScalePercent(this);
+        binding.sliderGameResolutionScale.setMax(
+                LauncherPreferences.MAX_GAME_RESOLUTION_SCALE_PERCENT
+                        - LauncherPreferences.MIN_GAME_RESOLUTION_SCALE_PERCENT
+        );
+        updateResolutionScaleUi(currentScale);
+
+        binding.sliderGameResolutionScale.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (!fromUser) return;
+                int percent = LauncherPreferences.MIN_GAME_RESOLUTION_SCALE_PERCENT + progress;
+                LauncherPreferences.setGameResolutionScalePercent(LauncherSettingsActivity.this, percent);
+                updateResolutionScaleText(percent);
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                int percent = LauncherPreferences.MIN_GAME_RESOLUTION_SCALE_PERCENT + seekBar.getProgress();
+                percent = LauncherPreferences.clampGameResolutionScalePercent(percent);
+                LauncherPreferences.setGameResolutionScalePercent(LauncherSettingsActivity.this, percent);
+                updateResolutionScaleUi(percent);
+            }
+        });
+
+        binding.textGameResolutionScale.setOnClickListener(view -> openResolutionScaleInputDialog());
+
+        boolean forceFullscreen = LauncherPreferences.isForceFullscreenMode(this);
+        binding.switchForceFullscreenMode.setChecked(forceFullscreen);
+        updateForceFullscreenSwitchText(forceFullscreen);
+        binding.switchForceFullscreenMode.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            LauncherPreferences.setForceFullscreenMode(this, isChecked);
+            updateForceFullscreenSwitchText(isChecked);
+        });
+
+        boolean avoidRoundedCorners = LauncherPreferences.isAvoidRoundedDisplayCorners(this);
+        binding.switchAvoidRoundedCorners.setChecked(avoidRoundedCorners);
+        updateAvoidRoundedCornersSwitchText(avoidRoundedCorners);
+        binding.switchAvoidRoundedCorners.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            LauncherPreferences.setAvoidRoundedDisplayCorners(this, isChecked);
+            updateAvoidRoundedCornersSwitchText(isChecked);
+        });
+    }
+
+    private void openResolutionScaleInputDialog() {
+        int currentScale = LauncherPreferences.getGameResolutionScalePercent(this);
+
+        EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_NUMBER);
+        input.setSingleLine(true);
+        input.setSelectAllOnFocus(true);
+        input.setText(String.valueOf(currentScale));
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(R.string.settings_renderer_resolution_scale_title)
+                .setMessage(getString(
+                        R.string.settings_renderer_resolution_scale_dialog_message,
+                        LauncherPreferences.MIN_GAME_RESOLUTION_SCALE_PERCENT,
+                        LauncherPreferences.MAX_GAME_RESOLUTION_SCALE_PERCENT
+                ))
+                .setView(input)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(android.R.string.ok, null)
+                .create();
+
+        dialog.setOnShowListener(dialogInterface -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
+            int percent = parseResolutionScaleInput(input.getText() == null ? "" : input.getText().toString());
+            percent = LauncherPreferences.clampGameResolutionScalePercent(percent);
+            LauncherPreferences.setGameResolutionScalePercent(this, percent);
+            updateResolutionScaleUi(percent);
+            dialog.dismiss();
+        }));
+
+        dialog.show();
+    }
+
+    private int parseResolutionScaleInput(@NonNull String value) {
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (Throwable ignored) {
+            return LauncherPreferences.getGameResolutionScalePercent(this);
+        }
+    }
+
+    private void updateResolutionScaleUi(int percent) {
+        int safePercent = LauncherPreferences.clampGameResolutionScalePercent(percent);
+        binding.sliderGameResolutionScale.setProgress(
+                safePercent - LauncherPreferences.MIN_GAME_RESOLUTION_SCALE_PERCENT
+        );
+        updateResolutionScaleText(safePercent);
+    }
+
+    private void updateResolutionScaleText(int percent) {
+        binding.textGameResolutionScale.setText(getString(
+                R.string.settings_renderer_resolution_scale_value,
+                LauncherPreferences.clampGameResolutionScalePercent(percent)
+        ));
     }
 
     private void setupControllerSettings() {
@@ -1108,6 +1214,22 @@ public final class LauncherSettingsActivity extends AppCompatActivity {
                 useNativeSurfaceView
                         ? R.string.render_surface_surface_view
                         : R.string.render_surface_texture_view
+        );
+    }
+
+    private void updateForceFullscreenSwitchText(boolean forceFullscreen) {
+        binding.switchForceFullscreenMode.setText(
+                forceFullscreen
+                        ? R.string.settings_renderer_full_screen_on
+                        : R.string.settings_renderer_full_screen_off
+        );
+    }
+
+    private void updateAvoidRoundedCornersSwitchText(boolean avoidRoundedCorners) {
+        binding.switchAvoidRoundedCorners.setText(
+                avoidRoundedCorners
+                        ? R.string.settings_renderer_avoid_rounded_corners_on
+                        : R.string.settings_renderer_avoid_rounded_corners_off
         );
     }
 

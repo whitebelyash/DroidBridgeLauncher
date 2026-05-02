@@ -7,6 +7,7 @@ import android.view.MotionEvent;
 import android.view.View;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import ca.dnamobile.javalauncher.feature.log.Logging;
 
@@ -15,7 +16,7 @@ import ca.dnamobile.javalauncher.feature.log.Logging;
  *
  * In menu mode:
  * - both sticks move visible cursor
- * - D-pad nudges visible cursor
+ * - D-pad only moves the visible cursor when that D-pad direction is mapped to a Cursor action
  * - A/R2/D-pad center are guarded to left-click even if old saved prefs mapped them to Enter
  */
 public final class GamepadInputController {
@@ -29,6 +30,7 @@ public final class GamepadInputController {
     private static final float BASE_GAME_CAMERA_SENSITIVITY = 18f;
     private static final float BASE_MENU_CURSOR_SENSITIVITY = 26f;
     private static final float BASE_DPAD_CURSOR_STEP = 14f;
+    private static final float CURSOR_ACTION_BASE_STEP = 72f;
 
     private static final int DIRECTION_NONE = -1;
     private static final int DIRECTION_EAST = 0;
@@ -55,6 +57,8 @@ public final class GamepadInputController {
     private float leftY;
     private float rightX;
     private float rightY;
+
+    @Nullable private InputDevice activeDevice;
 
     private int currentDirection = DIRECTION_NONE;
 
@@ -98,8 +102,8 @@ public final class GamepadInputController {
     public void removeSelf() {
         removed = true;
         releaseDirection();
-        sendMappedButton(GamepadButton.BUTTON_L2, false);
-        sendMappedButton(GamepadButton.BUTTON_R2, false);
+        sendMappedButton(GamepadButton.BUTTON_L2, false, activeDevice);
+        sendMappedButton(GamepadButton.BUTTON_R2, false, activeDevice);
     }
 
     public boolean handleKeyEvent(@NonNull KeyEvent event) {
@@ -109,6 +113,9 @@ public final class GamepadInputController {
         if (action != KeyEvent.ACTION_DOWN && action != KeyEvent.ACTION_UP) {
             return false;
         }
+
+        InputDevice device = event.getDevice();
+        rememberDevice(device);
 
         if (event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_MODE
                 || event.getKeyCode() == KeyEvent.KEYCODE_MENU) {
@@ -125,15 +132,20 @@ public final class GamepadInputController {
             return true;
         }
 
-        sendMappedButton(button, action == KeyEvent.ACTION_DOWN);
+        sendMappedButton(button, action == KeyEvent.ACTION_DOWN, device);
         return true;
     }
 
     public boolean handleMotionEvent(@NonNull MotionEvent event) {
+        // Do not ever claim normal touchscreen/mouse events. This class is only for
+        // physical controller axes/buttons, and returning true here would prevent
+        // the Minecraft surface or launcher touch overlay from receiving touches.
+        if (isPointerMotionEvent(event)) return false;
         if (!isGamepadMotionEvent(event)) return false;
 
         InputDevice device = event.getDevice();
         if (device == null) return false;
+        rememberDevice(device);
 
         leftX = getCenteredAxis(event, device, MotionEvent.AXIS_X);
         leftY = getCenteredAxis(event, device, MotionEvent.AXIS_Y);
@@ -145,15 +157,21 @@ public final class GamepadInputController {
 
         updateDirection();
 
-        updateHatButton(GamepadButton.DPAD_LEFT, getCenteredAxis(event, device, MotionEvent.AXIS_HAT_X) < -HAT_THRESHOLD);
-        updateHatButton(GamepadButton.DPAD_RIGHT, getCenteredAxis(event, device, MotionEvent.AXIS_HAT_X) > HAT_THRESHOLD);
-        updateHatButton(GamepadButton.DPAD_UP, getCenteredAxis(event, device, MotionEvent.AXIS_HAT_Y) < -HAT_THRESHOLD);
-        updateHatButton(GamepadButton.DPAD_DOWN, getCenteredAxis(event, device, MotionEvent.AXIS_HAT_Y) > HAT_THRESHOLD);
+        updateHatButton(GamepadButton.DPAD_LEFT, getCenteredAxis(event, device, MotionEvent.AXIS_HAT_X) < -HAT_THRESHOLD, device);
+        updateHatButton(GamepadButton.DPAD_RIGHT, getCenteredAxis(event, device, MotionEvent.AXIS_HAT_X) > HAT_THRESHOLD, device);
+        updateHatButton(GamepadButton.DPAD_UP, getCenteredAxis(event, device, MotionEvent.AXIS_HAT_Y) < -HAT_THRESHOLD, device);
+        updateHatButton(GamepadButton.DPAD_DOWN, getCenteredAxis(event, device, MotionEvent.AXIS_HAT_Y) > HAT_THRESHOLD, device);
 
-        updateTrigger(true, getCenteredAxis(event, device, MotionEvent.AXIS_LTRIGGER) > TRIGGER_THRESHOLD);
-        updateTrigger(false, getCenteredAxis(event, device, MotionEvent.AXIS_RTRIGGER) > TRIGGER_THRESHOLD);
+        updateTrigger(true, getCenteredAxis(event, device, MotionEvent.AXIS_LTRIGGER) > TRIGGER_THRESHOLD, device);
+        updateTrigger(false, getCenteredAxis(event, device, MotionEvent.AXIS_RTRIGGER) > TRIGGER_THRESHOLD, device);
 
         return true;
+    }
+
+    private void rememberDevice(@Nullable InputDevice device) {
+        if (device == null) return;
+        activeDevice = device;
+        mappingStore.rememberDevice(device);
     }
 
     private static boolean isGamepadKeyEvent(@NonNull KeyEvent event) {
@@ -170,6 +188,14 @@ public final class GamepadInputController {
         return GamepadButton.fromAndroidKeyCode(event.getKeyCode()) != null
                 || event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_MODE
                 || event.getKeyCode() == KeyEvent.KEYCODE_MENU;
+    }
+
+    private static boolean isPointerMotionEvent(@NonNull MotionEvent event) {
+        int source = event.getSource();
+        return (source & InputDevice.SOURCE_TOUCHSCREEN) == InputDevice.SOURCE_TOUCHSCREEN
+                || (source & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE
+                || (source & InputDevice.SOURCE_STYLUS) == InputDevice.SOURCE_STYLUS
+                || event.getPointerCount() > 1 && (source & InputDevice.SOURCE_JOYSTICK) != InputDevice.SOURCE_JOYSTICK;
     }
 
     private static boolean isGamepadMotionEvent(@NonNull MotionEvent event) {
@@ -241,15 +267,41 @@ public final class GamepadInputController {
             dy += y * acceleration * sensitivity * deltaScale;
         }
 
-        float dpadStep = BASE_DPAD_CURSOR_STEP * sensitivityMultiplier * deltaScale;
-        if (hatLeft) dx -= dpadStep;
-        if (hatRight) dx += dpadStep;
-        if (hatUp) dy -= dpadStep;
-        if (hatDown) dy += dpadStep;
+        // Only repeat D-pad cursor movement when that D-pad direction is actually mapped
+        // to a Cursor action. This fixes remapped D-pad buttons still behaving like a joystick.
+        float cursorRepeatScale = (BASE_DPAD_CURSOR_STEP / CURSOR_ACTION_BASE_STEP)
+                * sensitivityMultiplier
+                * deltaScale;
+        float[] dpadDelta = addDpadCursorRepeat(cursorRepeatScale);
+        dx += dpadDelta[0];
+        dy += dpadDelta[1];
 
         if (dx != 0f || dy != 0f) {
             GamepadAction.moveCursorBy(dx, dy);
         }
+    }
+
+    @NonNull
+    private float[] addDpadCursorRepeat(float scale) {
+        float[] delta = new float[]{0f, 0f};
+        addCursorRepeat(delta, GamepadButton.DPAD_LEFT, hatLeft, scale);
+        addCursorRepeat(delta, GamepadButton.DPAD_RIGHT, hatRight, scale);
+        addCursorRepeat(delta, GamepadButton.DPAD_UP, hatUp, scale);
+        addCursorRepeat(delta, GamepadButton.DPAD_DOWN, hatDown, scale);
+        return delta;
+    }
+
+    private void addCursorRepeat(
+            @NonNull float[] delta,
+            @NonNull GamepadButton button,
+            boolean pressed,
+            float scale
+    ) {
+        if (!pressed) return;
+        GamepadAction action = mappingStore.getButtonAction(button, false, activeDevice);
+        if (!action.isCursorAction()) return;
+        delta[0] += action.getCursorDx() * scale;
+        delta[1] += action.getCursorDy() * scale;
     }
 
     private void updateDirection() {
@@ -316,9 +368,13 @@ public final class GamepadInputController {
         }
     }
 
-    private void sendMappedButton(@NonNull GamepadButton button, boolean isDown) {
+    private void sendMappedButton(
+            @NonNull GamepadButton button,
+            boolean isDown,
+            @Nullable InputDevice device
+    ) {
         boolean gameMode = isGameMode();
-        GamepadAction action = mappingStore.getButtonAction(button, gameMode);
+        GamepadAction action = mappingStore.getButtonAction(button, gameMode, device);
 
         // Guard against old saved prefs from earlier patches where menu A/R2 were ENTER.
         // Those prefs survive reinstall/rebuild and make it look like A is not mapped to click.
@@ -332,6 +388,7 @@ public final class GamepadInputController {
 
         Logging.i(TAG, "Button=" + button + ", down=" + isDown
                 + ", gameMode=" + gameMode
+                + ", profile=" + mappingStore.profileKeyForDevice(device)
                 + ", action=" + action.name()
                 + ", cursor=" + org.lwjgl.glfw.CallbackBridge.mouseX + ","
                 + org.lwjgl.glfw.CallbackBridge.mouseY);
@@ -340,42 +397,46 @@ public final class GamepadInputController {
         action.perform(isDown, pulseMenuMouseClick);
     }
 
-    private void updateHatButton(@NonNull GamepadButton button, boolean isDown) {
+    private void updateHatButton(
+            @NonNull GamepadButton button,
+            boolean isDown,
+            @NonNull InputDevice device
+    ) {
         switch (button) {
             case DPAD_UP:
                 if (hatUp == isDown) return;
                 hatUp = isDown;
-                sendMappedButton(button, isDown);
+                sendMappedButton(button, isDown, device);
                 break;
             case DPAD_DOWN:
                 if (hatDown == isDown) return;
                 hatDown = isDown;
-                sendMappedButton(button, isDown);
+                sendMappedButton(button, isDown, device);
                 break;
             case DPAD_LEFT:
                 if (hatLeft == isDown) return;
                 hatLeft = isDown;
-                sendMappedButton(button, isDown);
+                sendMappedButton(button, isDown, device);
                 break;
             case DPAD_RIGHT:
                 if (hatRight == isDown) return;
                 hatRight = isDown;
-                sendMappedButton(button, isDown);
+                sendMappedButton(button, isDown, device);
                 break;
             default:
                 break;
         }
     }
 
-    private void updateTrigger(boolean left, boolean isDown) {
+    private void updateTrigger(boolean left, boolean isDown, @NonNull InputDevice device) {
         if (left) {
             if (leftTriggerDown == isDown) return;
             leftTriggerDown = isDown;
-            sendMappedButton(GamepadButton.BUTTON_L2, isDown);
+            sendMappedButton(GamepadButton.BUTTON_L2, isDown, device);
         } else {
             if (rightTriggerDown == isDown) return;
             rightTriggerDown = isDown;
-            sendMappedButton(GamepadButton.BUTTON_R2, isDown);
+            sendMappedButton(GamepadButton.BUTTON_R2, isDown, device);
         }
     }
 }
