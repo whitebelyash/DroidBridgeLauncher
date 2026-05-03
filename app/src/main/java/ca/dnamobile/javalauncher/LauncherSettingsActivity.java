@@ -233,39 +233,12 @@ public final class LauncherSettingsActivity extends AppCompatActivity {
     }
 
     private void setupAccountUi() {
-        try {
-            accountStore = new AccountStore(this);
-            customSkinStore = new CustomSkinStore(this);
-            authManager = new MicrosoftAuthManagerPersonal(this, accountStore);
-            authManager.setListener(new MicrosoftAuthManagerPersonal.Listener() {
-                @Override
-                public void onSignedIn(@NonNull AccountStore.Account account) {
-                    updateAccountStatus(account);
-                    updateSkinUi(account);
-                    updateChangeMicrosoftSkinButtonState(account);
-                    binding.buttonRefreshMicrosoftSkin.setEnabled(true);
-                }
-
-                @Override
-                public void onError(@NonNull String message) {
-                    binding.textAccountStatus.setText(message);
-                    binding.buttonRefreshMicrosoftSkin.setEnabled(true);
-                    Toast.makeText(LauncherSettingsActivity.this, message, Toast.LENGTH_LONG).show();
-                }
-            });
-
-            AccountStore.Account account = accountStore.load();
-            updateAccountStatus(account);
-            updateSkinUi(account);
-        } catch (Throwable throwable) {
-            Logging.e("LauncherSettings", "Microsoft account UI initialization failed", throwable);
-            binding.textAccountStatus.setText(R.string.status_signed_out);
-            binding.buttonSignIn.setEnabled(false);
-            binding.buttonSignOut.setEnabled(false);
-            binding.buttonManageOfflineAccounts.setEnabled(false);
-            binding.buttonUseMicrosoftAccount.setEnabled(false);
-            binding.buttonRefreshMicrosoftSkin.setEnabled(false);
-        }
+        binding.textAccountStatus.setText(R.string.status_signed_out);
+        binding.buttonSignIn.setEnabled(false);
+        binding.buttonSignOut.setEnabled(false);
+        binding.buttonManageOfflineAccounts.setEnabled(true);
+        binding.buttonUseMicrosoftAccount.setEnabled(false);
+        binding.buttonRefreshMicrosoftSkin.setEnabled(false);
 
         setupChangeMicrosoftSkinButton();
 
